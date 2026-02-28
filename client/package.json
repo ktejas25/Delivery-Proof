@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
     "@types/react-signature-canvas": "^1.0.7",
     "axios": "^1.7.2",
     "framer-motion": "^12.34.3",

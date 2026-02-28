@@ -1,5 +1,4 @@
 const pool = require('../config/database');
-const { v4: uuidv4 } = require('uuid');
 
 const createDispute = async (req, res) => {
     const { delivery_uuid, dispute_type, customer_claim } = req.body;
@@ -8,6 +7,7 @@ const createDispute = async (req, res) => {
         const [delivery] = await pool.query('SELECT id FROM deliveries WHERE uuid = ?', [delivery_uuid]);
         if (delivery.length === 0) return res.status(404).json({ message: 'Delivery not found' });
 
+        const { v4: uuidv4 } = await import('uuid');
         const uuid = uuidv4();
         const [result] = await pool.query(
             'INSERT INTO disputes (uuid, delivery_id, dispute_type, customer_claim) VALUES (?, ?, ?, ?)',
@@ -190,6 +190,7 @@ const addDisputeComment = async (req, res) => {
 
         if (dispute.length === 0) return res.status(404).json({ message: 'Dispute not found' });
 
+        const { v4: uuidv4 } = await import('uuid');
         const comment_uuid = uuidv4();
         await pool.query(
             'INSERT INTO dispute_comments (uuid, dispute_id, user_id, comment) VALUES (?, ?, ?, ?)',

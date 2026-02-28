@@ -1,9 +1,11 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+@source "../src/**/*.{js,ts,jsx,tsx}";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
+@theme {
+  --color-emerald-500: #2bb673;
+  --color-emerald-600: #1f9e6f;
+}
 :root {
   /* Core Colors */
   --primary-mint: #2bb673;
