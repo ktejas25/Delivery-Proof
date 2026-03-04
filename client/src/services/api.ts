@@ -15,7 +15,8 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        const isUpload = error.config && error.config.url && (error.config.url.includes('/upload') || error.config.url.includes('/proof'));
+        if (error.response && (error.response.status === 401 || error.response.status === 403) && !isUpload) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/login';

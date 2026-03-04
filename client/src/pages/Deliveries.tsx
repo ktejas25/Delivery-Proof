@@ -231,7 +231,7 @@ const ActionMenu: React.FC<ActionMenuProps> = ({
 const Deliveries: React.FC = () => {
   const [deliveries, setDeliveries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDelivery, setSelectedDelivery] = useState<string | null>(null);
+  const [selectedDelivery, setSelectedDelivery] = useState<any | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -283,7 +283,9 @@ const Deliveries: React.FC = () => {
         }
         break;
       case "proof":
-        setSelectedDelivery(deliveryUuid);
+        setSelectedDelivery(
+          deliveries.find((d) => d.uuid === deliveryUuid) || null,
+        );
         break;
       default:
         break;
@@ -539,13 +541,10 @@ const Deliveries: React.FC = () => {
       {/* Modals (unchanged) */}
       {selectedDelivery && (
         <ProofModal
-          delivery={{ uuid: selectedDelivery } as any}
+          delivery={selectedDelivery}
           isOpen={!!selectedDelivery}
+          mode="view"
           onClose={() => setSelectedDelivery(null)}
-          onSubmit={async () => {
-            setSelectedDelivery(null);
-            fetchDeliveries();
-          }}
         />
       )}
       {showNewModal && (

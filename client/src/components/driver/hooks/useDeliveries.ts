@@ -122,6 +122,60 @@ export const useDeliveries = () => {
     initDeliveries();
   }, []);
 
+  const submitDeliveryProof = useCallback(
+    async (uuid: string, proof: { photoUrl?: string; signature?: string; notes?: string; gps?: any }) => {
+      if (offline) {
+        throw new Error("You must be online to submit proof.");
+      }
+
+      try {
+        // 1. Upload photo if exists (base64)
+        let finalPhotoUrl = null;
+        if (proof.photoUrl) {
+          const photoRes = await api.post("/upload/photo", {
+            photo: proof.photoUrl,
+          });
+          finalPhotoUrl = photoRes.data.url;
+        }
+
+        // 2. Upload signature if exists (base64)
+        let finalSignatureUrl = null;
+        if (proof.signature) {
+          const sigRes = await api.post("/upload/signature", {
+            signature: proof.signature,
+          });
+          finalSignatureUrl = sigRes.data.url;
+        }
+
+        // 3. Submit proof artifacts to delivery
+        // The backend status will be automatically set to 'delivered' by this endpoint
+        await api.post(`/deliveries/${uuid}/proof`, {
+          photo_url: finalPhotoUrl,
+          signature_url: finalSignatureUrl,
+          gps_lat: proof.gps?.lat || 0,
+          gps_lng: proof.gps?.lng || 0,
+          gps_accuracy: proof.gps?.accuracy || 0,
+          recorded_at: Date.now(),
+        });
+
+        // 4. Update local state optimistically
+        const updated = deliveries.map((d) =>
+          d.uuid === uuid
+            ? ({ ...d, delivery_status: "delivered" } as Delivery)
+            : d
+        );
+        setDeliveries(updated);
+        localStorage.setItem("deliveries", JSON.stringify(updated));
+
+        return true;
+      } catch (err) {
+        console.error("Proof submission failed:", err);
+        throw err;
+      }
+    },
+    [deliveries, offline]
+  );
+
   return {
     deliveries,
     setDeliveries,
@@ -130,6 +184,7 @@ export const useDeliveries = () => {
     error,
     offline,
     updateDeliveryStatus,
+    submitDeliveryProof,
     syncQueuedUpdates,
   };
 };

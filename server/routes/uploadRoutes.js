@@ -20,17 +20,26 @@ const upload = multer({
 router.use(authenticateToken);
 
 // Upload Photo
-router.post('/photo', upload.single('photo'), async (req, res) => {
+router.post('/photo', async (req, res) => {
     try {
-        if (!req.file) return res.status(400).json({ message: 'No photo provided' });
+        // Since we are using express.json() with high limits,
+        // we handle base64 uploads here. 
+        // Multer is better for multipart files, but for base64 JSON, body works best.
         
-        // Convert buffer to base64 for Cloudinary
-        const b64 = Buffer.from(req.file.buffer).toString('base64');
-        const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+        let fileContent = null;
+        if (req.body.photo) {
+            fileContent = req.body.photo;
+        }
+
+        if (!fileContent) {
+            // Check if it's actually coming through as multipart (fallback)
+            return res.status(400).json({ message: 'No photo provided or content-type mismatch' });
+        }
         
-        const result = await uploadImage(dataURI, 'delivery_proofs/photos');
+        const result = await uploadImage(fileContent, 'delivery_proofs/photos');
         res.json({ url: result.secure_url });
     } catch (error) {
+        console.error('Photo upload error:', error);
         res.status(500).json({ message: 'Photo upload failed', error: error.message });
     }
 });
@@ -38,12 +47,13 @@ router.post('/photo', upload.single('photo'), async (req, res) => {
 // Upload Signature
 router.post('/signature', async (req, res) => {
     try {
-        const { signature } = req.body; // Expecting base64 PNG
+        const { signature } = req.body;
         if (!signature) return res.status(400).json({ message: 'No signature provided' });
         
         const result = await uploadImage(signature, 'delivery_proofs/signatures');
         res.json({ url: result.secure_url });
     } catch (error) {
+        console.error('Signature upload error:', error);
         res.status(500).json({ message: 'Signature upload failed', error: error.message });
     }
 });

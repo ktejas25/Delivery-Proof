@@ -46,7 +46,10 @@ const DeliveryListSection: React.FC<DeliveryListSectionProps> = ({
   isCompleted = false,
 }) => (
   <section aria-labelledby={`section-${title}`}>
-    <h2 id={`section-${title}`} className="text-xs font-bold text-slate-500 uppercase mb-2">
+    <h2
+      id={`section-${title}`}
+      className="text-xs font-bold text-slate-500 uppercase mb-2"
+    >
       {title}
     </h2>
     <div className={cn("space-y-2", isCompleted && "opacity-70")}>
@@ -103,15 +106,18 @@ const DriverDashboard: React.FC = () => {
     error,
     offline,
     updateDeliveryStatus,
+    submitDeliveryProof,
     syncQueue,
   } = useDeliveries();
 
-  const { status: gpsStatus } = useGPS();
+  const { status: gpsStatus, getPosition } = useGPS();
   const { formattedTime, stop, reset } = useShiftTimer();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [proofModalDelivery, setProofModalDelivery] = useState<Delivery | null>(null);
+  const [proofModalDelivery, setProofModalDelivery] = useState<Delivery | null>(
+    null,
+  );
 
   // Memoized derived data
   const filteredDeliveries = useMemo(() => {
@@ -121,7 +127,7 @@ const DriverDashboard: React.FC = () => {
 
   const stats = useMemo(
     () => getRouteStats(filteredDeliveries),
-    [filteredDeliveries]
+    [filteredDeliveries],
   );
 
   const nextDelivery = useMemo(
@@ -130,22 +136,22 @@ const DriverDashboard: React.FC = () => {
         (d) =>
           d.delivery_status === "pending" ||
           d.delivery_status === "in_transit" ||
-          d.delivery_status === "arrived"
+          d.delivery_status === "arrived",
       ),
-    [filteredDeliveries]
+    [filteredDeliveries],
   );
 
   const remainingDeliveries = useMemo(
     () =>
       filteredDeliveries.filter(
-        (d) => d !== nextDelivery && d.delivery_status !== "delivered"
+        (d) => d !== nextDelivery && d.delivery_status !== "delivered",
       ),
-    [filteredDeliveries, nextDelivery]
+    [filteredDeliveries, nextDelivery],
   );
 
   const completedDeliveries = useMemo(
     () => filteredDeliveries.filter((d) => d.delivery_status === "delivered"),
-    [filteredDeliveries]
+    [filteredDeliveries],
   );
 
   const allDeliveriesCompleted =
@@ -169,7 +175,7 @@ const DriverDashboard: React.FC = () => {
         setActionLoading(null);
       }
     },
-    [updateDeliveryStatus]
+    [updateDeliveryStatus],
   );
 
   const handleCall = useCallback((delivery: Delivery) => {
@@ -182,9 +188,9 @@ const DriverDashboard: React.FC = () => {
     if (delivery.address) {
       window.open(
         `https://maps.google.com/maps?q=${encodeURIComponent(
-          delivery.address
+          delivery.address,
         )}`,
-        "_blank"
+        "_blank",
       );
     }
   }, []);
@@ -194,20 +200,27 @@ const DriverDashboard: React.FC = () => {
       const delivery = deliveries.find((d) => d.uuid === uuid);
       if (delivery) setProofModalDelivery(delivery);
     },
-    [deliveries]
+    [deliveries],
   );
 
   const handleProofSubmit = useCallback(
     async (proof: { uuid: string; [key: string]: any }) => {
       try {
-        await updateDeliveryStatus(proof.uuid, "delivered");
+        const gps = await getPosition();
+        await submitDeliveryProof(proof.uuid, {
+          photoUrl: proof.photoUrl,
+          signature: proof.signature,
+          notes: proof.notes,
+          gps,
+        });
         setProofModalDelivery(null);
         toast.success("Delivery completed!");
-      } catch {
+      } catch (err) {
+        console.error("Proof submission error:", err);
         toast.error("Failed to complete delivery");
       }
     },
-    [updateDeliveryStatus]
+    [submitDeliveryProof, getPosition],
   );
 
   const handleEndShift = useCallback(() => {
@@ -224,7 +237,7 @@ const DriverDashboard: React.FC = () => {
 
   // Error state
   if (error) {
-    return <ErrorState message={error}/>;
+    return <ErrorState message={error} />;
   }
 
   // Empty state
@@ -256,7 +269,10 @@ const DriverDashboard: React.FC = () => {
         {/* Next delivery */}
         {nextDelivery && (
           <section aria-labelledby="next-delivery-heading">
-            <h2 id="next-delivery-heading" className="text-xs font-bold text-slate-500 uppercase mb-2">
+            <h2
+              id="next-delivery-heading"
+              className="text-xs font-bold text-slate-500 uppercase mb-2"
+            >
               Next Delivery
             </h2>
             <NextDeliveryCard
@@ -302,7 +318,10 @@ const DriverDashboard: React.FC = () => {
 
         {/* Shift complete banner */}
         {allDeliveriesCompleted && (
-          <ShiftCompleteCard earnings={stats.totalEarnings} onEndShift={handleEndShift} />
+          <ShiftCompleteCard
+            earnings={stats.totalEarnings}
+            onEndShift={handleEndShift}
+          />
         )}
       </main>
 
