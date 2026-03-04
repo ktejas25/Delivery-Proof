@@ -158,25 +158,47 @@ const updateDeliveryDriver = async (req, res) => {
     }
 };
 
-const getTodayDeliveries = async (req, res) => {
+const getDriverDeliveries = async (req, res) => {
     const { id: driver_id } = req.user;
-    const { lang } = req.query; // e.g. 'es', 'en'
     
     try {
         const [rows] = await pool.query(
-            'CALL sp_get_driver_today_deliveries_i18n(?, ?)',
-            [driver_id, lang || 'en']
+            `SELECT
+                d.uuid,
+                d.order_number,
+                d.delivery_status,
+                d.scheduled_time,
+                d.priority_level,
+                d.requires_signature,
+                d.requires_photo,
+                d.route_optimization_data,
+                50 AS earnings,
+                c.name AS customer_name,
+                c.phone AS customer_phone,
+                c.address,
+                ST_X(c.location) AS address_lat,
+                ST_Y(c.location) AS address_lng,
+                c.delivery_instructions,
+                c.preferred_language_code
+            FROM deliveries d
+            JOIN customers c ON d.customer_id = c.id
+            JOIN drivers dr ON d.driver_id = dr.id
+            WHERE dr.user_id = ?
+            ORDER BY
+                FIELD(d.delivery_status, 'scheduled', 'dispatched', 'en_route', 'arrived', 'delivered', 'disputed', 'failed'),
+                d.scheduled_time ASC`,
+            [driver_id]
         );
-        res.json(rows[0]);
+        res.json(rows);
     } catch (error) {
-        res.status(500).json({ message: 'Failed to fetch today\'s deliveries', error: error.message });
+        res.status(500).json({ message: 'Failed to fetch deliveries', error: error.message });
     }
 };
 
 module.exports = {
     getDeliveries,
     getDeliveryByUuid,
-    getTodayDeliveries,
+    getDriverDeliveries,
     createDelivery,
     updateDelivery,
     updateDeliveryDriver,

@@ -1,328 +1,358 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Camera, X, Loader, MapPin, ShieldCheck, Cloud } from 'lucide-react';
-import api from '../services/api';
+import React, { useState, useRef } from "react";
+import { X, Camera, CheckCircle } from "lucide-react";
+import { Delivery } from "./driver/types";
+import ActionButton from "./driver/ui/ActionButton";
 
 interface ProofModalProps {
-  deliveryUuid: string;
+  delivery: Delivery;
+  isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSubmit: (proof: ProofData) => Promise<void>;
 }
 
-const ProofModal: React.FC<ProofModalProps> = ({ deliveryUuid, onClose, onSuccess }) => {
-  const [step, setStep] = useState(1);
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [signatureData, setSignatureData] = useState<string | null>(null);
-  const [gps, setGps] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
-  const [gpsError, setGpsError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
+export interface ProofData {
+  uuid: string;
+  photoUrl?: string;
+  signature?: string;
+  notes?: string;
+  timestamp: number;
+}
 
+const ProofModal: React.FC<ProofModalProps> = ({
+  delivery,
+  isOpen,
+  onClose,
+  onSubmit,
+}) => {
+  const [step, setStep] = useState<"capture" | "signature" | "confirm">(
+    "capture",
+  );
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+  const [notes, setNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
 
-  // Auto-capture GPS when modal opens
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setGps({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            accuracy: position.coords.accuracy
-          });
-        },
-        (error) => {
-          console.error('GPS error:', error);
-          setGpsError('GPS permission required for delivery proof.');
-        },
-        { enableHighAccuracy: true }
-      );
-    } else {
-      setGpsError('Geolocation is not supported by this browser.');
-    }
-  }, []);
+  if (!isOpen) return null;
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('photo', file);
-
-      const response = await api.post('/api/upload/photo', formData);
-      setPhotoUrl(response.data.url);
-      setStep(2);
-    } catch (error) {
-      console.error('Photo upload failed', error);
-      alert('Photo upload failed. Please try again.');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleSignatureSave = async () => {
-    if (!canvasRef.current) return;
-
-    setUploading(true);
-    try {
-      const base64Signature = canvasRef.current.toDataURL('image/png');
-      const response = await api.post('/api/upload/signature', { signature: base64Signature });
-      setSignatureData(response.data.url);
-      setStep(3);
-    } catch (error) {
-      console.error('Signature upload failed', error);
-      alert('Signature upload failed. Please try again.');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const getCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current) return null;
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    
-    // Support both mouse and touch events
-    let clientX, clientY;
-    if ('touches' in e) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-
-    return {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY
+  const handlePhotoCapture = (file: File) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPhotoUrl(reader.result as string);
+      setStep("signature");
     };
+    reader.readAsDataURL(file);
   };
 
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    isDrawing.current = true;
-    const coords = getCoordinates(e);
-    if (!coords || !canvasRef.current) return;
-
-    const ctx = canvasRef.current.getContext('2d');
-    if (ctx) {
-      ctx.beginPath();
-      ctx.moveTo(coords.x, coords.y);
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handlePhotoCapture(file);
     }
   };
 
-  const stopDrawing = () => {
+  const startSignature = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+
+    isDrawing.current = true;
+    const rect = canvas.getBoundingClientRect();
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.beginPath();
+    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+  };
+
+  const drawSignature = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDrawing.current) return;
+
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#1f2937";
+
+    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.stroke();
+  };
+
+  const endSignature = () => {
     isDrawing.current = false;
   };
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing.current || !canvasRef.current) return;
-    
-    // Prevent default scrolling when drawing on touch devices
-    if ('touches' in e) {
-       e.preventDefault();
-    }
-
-    const coords = getCoordinates(e);
-    if (!coords) return;
-
-    const ctx = canvasRef.current.getContext('2d');
-    if (ctx) {
-      ctx.lineTo(coords.x, coords.y);
-      ctx.stroke();
+  const saveSignature = () => {
+    const canvas = signatureCanvasRef.current;
+    if (canvas) {
+      setSignature(canvas.toDataURL());
+      setStep("confirm");
     }
   };
 
   const clearSignature = () => {
-    if (canvasRef.current) {
-      const ctx = canvasRef.current.getContext('2d');
-      if (ctx) {
-        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      }
+    const canvas = signatureCanvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
     }
   };
 
   const handleSubmit = async () => {
-    if (!gps) {
-      alert('GPS lock required before submission.');
-      return;
-    }
-
-    setLoading(true);
+    setIsSubmitting(true);
     try {
-      await api.post(`/api/deliveries/${deliveryUuid}/proof`, {
-        photo_url: photoUrl,
-        signature_url: signatureData,
-        gps_lat: gps.lat,
-        gps_lng: gps.lng,
-        gps_accuracy: gps.accuracy,
-        recorded_at: new Date().toISOString()
+      await onSubmit({
+        uuid: delivery.uuid,
+        photoUrl: photoUrl || undefined,
+        signature: signature || undefined,
+        notes: notes || undefined,
+        timestamp: Date.now(),
       });
-      onSuccess();
-    } catch (error: any) {
-      console.error('Proof submission failed', error);
-      alert('Final submission failed: ' + (error?.message || 'Unknown error'));
+      onClose();
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  const canSubmit = photoUrl && signatureData && gps;
-
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md relative shadow-2xl">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 hover:bg-slate-100 rounded-lg transition"
-        >
-          <X size={20} className="text-slate-500" />
-        </button>
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
 
-        <div className="p-6 sm:p-8">
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold text-slate-900">Complete Delivery</h3>
-            <p className="text-sm text-slate-600 mt-2">Secure proof of delivery required.</p>
+      {/* Modal */}
+      <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto animate-slide-in-up">
+          {/* Header */}
+          <div className="sticky top-0 bg-slate-50 border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+            <div>
+              <h2 className="font-bold text-lg text-slate-900">
+                Delivery Proof
+              </h2>
+              <p className="text-sm text-slate-600">{delivery.customer_name}</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-slate-200 rounded-lg transition"
+            >
+              <X size={20} />
+            </button>
           </div>
 
-          {/* Status Badges */}
-          <div className="flex flex-wrap gap-2 mb-6">
-            <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${
-              gps ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-            }`}>
-              <MapPin size={12} /> {gps ? 'GPS LOCKED' : 'ACQUIRING GPS...'}
-            </div>
-            {photoUrl && (
-              <div className="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-                <Cloud size={12} /> PHOTO STORED
+          {/* Content */}
+          <div className="p-6 space-y-6">
+            {/* Step 1: Photo Capture */}
+            {step === "capture" && (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold text-slate-900 mb-2">
+                    1. Proof of Delivery
+                  </h3>
+                  <p className="text-sm text-slate-600">
+                    Take or upload a photo as proof of delivery
+                  </p>
+                </div>
+
+                {photoUrl ? (
+                  <div className="space-y-3">
+                    <img
+                      src={photoUrl}
+                      alt="Proof"
+                      className="w-full h-48 object-cover rounded-xl border border-slate-200"
+                    />
+                    <button
+                      onClick={() => {
+                        setPhotoUrl(null);
+                        if (fileInputRef.current)
+                          fileInputRef.current.value = "";
+                      }}
+                      className="w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold transition text-sm"
+                    >
+                      Change Photo
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer hover:bg-slate-50 transition"
+                    >
+                      <Camera
+                        size={32}
+                        className="mx-auto text-slate-400 mb-2"
+                      />
+                      <p className="font-semibold text-slate-900">
+                        Take or upload photo
+                      </p>
+                      <p className="text-sm text-slate-600">
+                        Click to select an image
+                      </p>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                  </div>
+                )}
+
+                <ActionButton
+                  onClick={() => setStep("signature")}
+                  label="Continue"
+                  variant={photoUrl ? "primary" : "secondary"}
+                  disabled={!photoUrl}
+                  size="md"
+                />
+              </div>
+            )}
+
+            {/* Step 2: Signature */}
+            {step === "signature" && (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold text-slate-900 mb-2">
+                    2. Signature (Optional)
+                  </h3>
+                  <p className="text-sm text-slate-600">
+                    Customer signature confirms delivery
+                  </p>
+                </div>
+
+                <div className="border-2 border-slate-300 rounded-xl overflow-hidden bg-white">
+                  <canvas
+                    ref={signatureCanvasRef}
+                    width={400}
+                    height={150}
+                    onMouseDown={startSignature}
+                    onMouseMove={drawSignature}
+                    onMouseUp={endSignature}
+                    onMouseLeave={endSignature}
+                    className="w-full bg-white cursor-crosshair block"
+                  />
+                </div>
+
+                <button
+                  onClick={clearSignature}
+                  className="w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold transition text-sm"
+                >
+                  Clear Signature
+                </button>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-900">
+                    Delivery Notes (Optional)
+                  </label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Add any delivery notes..."
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setStep("capture")}
+                    className="flex-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold transition text-sm min-h-[44px]"
+                  >
+                    Back
+                  </button>
+                  <ActionButton
+                    onClick={saveSignature}
+                    label="Review"
+                    variant="primary"
+                    size="md"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Confirmation */}
+            {step === "confirm" && (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <CheckCircle
+                    size={48}
+                    className="mx-auto text-emerald-500 mb-3"
+                  />
+                  <h3 className="font-bold text-lg text-slate-900">
+                    Review Proof
+                  </h3>
+                </div>
+
+                {photoUrl && (
+                  <div>
+                    <p className="text-sm font-semibold text-slate-600 mb-2">
+                      Photo
+                    </p>
+                    <img
+                      src={photoUrl}
+                      alt="Proof"
+                      className="w-full h-32 object-cover rounded-lg border border-slate-200"
+                    />
+                  </div>
+                )}
+
+                {signature && (
+                  <div>
+                    <p className="text-sm font-semibold text-slate-600 mb-2">
+                      Signature
+                    </p>
+                    <img
+                      src={signature}
+                      alt="Signature"
+                      className="w-full h-20 object-contain rounded-lg border border-slate-200 bg-white"
+                    />
+                  </div>
+                )}
+
+                {notes && (
+                  <div>
+                    <p className="text-sm font-semibold text-slate-600 mb-2">
+                      Notes
+                    </p>
+                    <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg">
+                      {notes}
+                    </p>
+                  </div>
+                )}
+
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-sm text-emerald-700">
+                  <p className="font-semibold">Ready to submit</p>
+                  <p>Marking delivery as complete</p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setStep("signature")}
+                    disabled={isSubmitting}
+                    className="flex-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 rounded-lg font-semibold transition text-sm min-h-[44px]"
+                  >
+                    Edit
+                  </button>
+                  <ActionButton
+                    onClick={handleSubmit}
+                    label={isSubmitting ? "Submitting..." : "Complete Delivery"}
+                    variant="success"
+                    loading={isSubmitting}
+                    size="md"
+                  />
+                </div>
               </div>
             )}
           </div>
-
-          {gpsError && (
-            <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm mb-6">
-              {gpsError}
-            </div>
-          )}
-
-          {step === 1 && (
-            <div>
-              <p className="text-sm font-semibold text-slate-900 mb-4">Step 1: Capture Photo Evidence</p>
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                ref={fileInputRef}
-                onChange={handlePhotoUpload}
-                className="hidden"
-              />
-              <button
-                onClick={() => !uploading && fileInputRef.current?.click()}
-                className="w-full h-48 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center hover:border-slate-400 transition bg-slate-50"
-              >
-                {!photoUrl && !uploading && (
-                  <>
-                    <div className="p-4 bg-white rounded-full mb-3 shadow-sm">
-                      <Camera size={32} className="text-blue-600" />
-                    </div>
-                    <p className="text-sm text-slate-600">Tap to take photo</p>
-                  </>
-                )}
-                {uploading && (
-                  <div className="text-center">
-                    <Loader size={32} className="animate-spin text-blue-600 mb-2 mx-auto" />
-                    <p className="text-sm text-slate-600">Uploading...</p>
-                  </div>
-                )}
-              </button>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div>
-              <p className="text-sm font-semibold text-slate-900 mb-4">Step 2: Customer Signature</p>
-              <canvas
-                ref={canvasRef}
-                width={320}
-                height={160}
-                onMouseDown={startDrawing}
-                onMouseUp={stopDrawing}
-                onMouseOut={stopDrawing}
-                onMouseMove={draw}
-                onTouchStart={startDrawing}
-                onTouchEnd={stopDrawing}
-                onTouchMove={draw}
-                style={{ touchAction: 'none' }}
-                className="w-full border-2 border-slate-300 rounded-xl bg-white cursor-crosshair"
-              />
-              <div className="flex gap-2 mt-4">
-                <button
-                  onClick={clearSignature}
-                  className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 transition"
-                >
-                  Clear
-                </button>
-                <button
-                  onClick={handleSignatureSave}
-                  disabled={uploading}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
-                >
-                  {uploading ? <Loader size={16} className="animate-spin" /> : 'Confirm'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="text-center">
-              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <ShieldCheck size={32} className="text-emerald-600" />
-              </div>
-              <h4 className="text-xl font-bold text-slate-900 mb-2">Tamper-Proof Ready</h4>
-              <p className="text-sm text-slate-600 mb-6">
-                Evidence uploaded and secure. Ready to finalize.
-              </p>
-
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <div className="p-3 bg-slate-100 rounded-lg">
-                  <p className="text-xs text-slate-600 font-semibold">GPS Accuracy</p>
-                  <p className="text-sm font-bold text-slate-900">{gps?.accuracy.toFixed(1)}m</p>
-                </div>
-                <div className="p-3 bg-slate-100 rounded-lg">
-                  <p className="text-xs text-slate-600 font-semibold">Status</p>
-                  <p className="text-sm font-bold text-slate-900">Verified</p>
-                </div>
-              </div>
-
-              <button
-                onClick={handleSubmit}
-                disabled={loading || !canSubmit}
-                className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
-              >
-                {loading ? <Loader size={18} className="animate-spin" /> : 'Finalize & Record'}
-              </button>
-            </div>
-          )}
-
-          {/* Progress Bar */}
-          <div className="flex gap-2 mt-6 justify-center">
-            {[1, 2, 3].map(i => (
-              <div
-                key={i}
-                className={`h-2 rounded-full transition-all ${
-                  i <= step ? 'w-6 bg-blue-600' : 'w-2 bg-slate-300'
-                }`}
-              />
-            ))}
-          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

@@ -25,7 +25,7 @@ const i18nRoutes = require('./routes/i18nRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const disputeRoutes = require('./routes/disputeRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
-
+const driverRoutes = require('./routes/driverRoutes');
 app.use('/api/auth', authRoutes);
 app.use('/api/deliveries', deliveryRoutes);
 app.use('/api/customers', customerRoutes);
@@ -33,7 +33,7 @@ app.use('/api/i18n', i18nRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/upload', uploadRoutes);
-
+app.use('/api/driver', driverRoutes);
 // Test DB connection
 app.get('/api/test-db', async (req, res) => {
     try {

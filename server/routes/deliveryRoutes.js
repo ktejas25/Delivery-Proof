@@ -1,5 +1,5 @@
 const express = require('express');
-const { getDeliveries, getDeliveryByUuid, getTodayDeliveries, createDelivery, updateDelivery, updateDeliveryDriver, updateDeliveryStatus } = require('../controllers/deliveryController');
+const { getDeliveries, getDeliveryByUuid, getDriverDeliveries, createDelivery, updateDelivery, updateDeliveryDriver, updateDeliveryStatus } = require('../controllers/deliveryController');
 const { submitProof } = require('../controllers/proofController');
 const { authenticateToken } = require('../middleware/authMiddleware');
 const router = express.Router();
@@ -7,7 +7,7 @@ const router = express.Router();
 router.use(authenticateToken);
 
 router.get('/', getDeliveries);
-router.get('/today', getTodayDeliveries);
+router.get('/driver', getDriverDeliveries);
 router.get('/:uuid', getDeliveryByUuid);
 router.post('/', createDelivery);
 router.put('/:uuid', updateDelivery);

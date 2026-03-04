@@ -1,213 +1,319 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { AlertCircle, MapPin } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import ProofModal from '../components/ProofModal';
-import NextDeliveryCard from '../components/driver/NextDeliveryCard';
-import RouteCard from '../components/driver/RouteCard';
-import { useGPS } from '../components/driver/hooks/useGPS';
-import { useDeliveries } from '../components/driver/hooks/useDeliveries';
-import { GPSPosition, Delivery } from '../components/driver/types';
-import { DriverHeader } from '../components/driver/DriverHeader';
-import api from '../services/api';
+import React, { useState, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import { useAuth } from "../contexts/AuthContext";
+import { useDeliveries } from "../components/driver/hooks/useDeliveries";
+import { useGPS } from "../components/driver/hooks/useGPS";
+import { useShiftTimer } from "../components/driver/hooks/useShiftTimer";
+import { Delivery } from "../components/driver/types";
+import DriverHeader from "../components/driver/DriverHeader";
+import NextDeliveryCard from "../components/driver/NextDeliveryCard";
+import RouteCard from "../components/driver/RouteCard";
+import ProofModal from "../components/ProofModal";
+import LoadingState from "../components/ui/LoadingState";
+import ErrorState from "../components/ui/ErrorState";
+import EmptyState from "../components/ui/EmptyState";
+import {
+  searchDeliveries,
+  sortDeliveriesByTime,
+  getRouteStats,
+} from "../components/driver/utils";
+import { cn } from "../components/driver/utils"; // adjust if you have a central utils
+
+// ----- Subcomponents (can be extracted later) -----
+
+interface DeliveryListSectionProps {
+  title: string;
+  deliveries: Delivery[];
+  startIndex: number;
+  onStatusChange: (uuid: string, status: Delivery["delivery_status"]) => void;
+  onCall: (delivery: Delivery) => void;
+  onNavigate: (delivery: Delivery) => void;
+  onProofRequired: (uuid: string) => void;
+  loadingMap: string | null;
+  isCompleted?: boolean;
+}
+
+const DeliveryListSection: React.FC<DeliveryListSectionProps> = ({
+  title,
+  deliveries,
+  startIndex,
+  onStatusChange,
+  onCall,
+  onNavigate,
+  onProofRequired,
+  loadingMap,
+  isCompleted = false,
+}) => (
+  <section aria-labelledby={`section-${title}`}>
+    <h2 id={`section-${title}`} className="text-xs font-bold text-slate-500 uppercase mb-2">
+      {title}
+    </h2>
+    <div className={cn("space-y-2", isCompleted && "opacity-70")}>
+      {deliveries.map((delivery, idx) => (
+        <RouteCard
+          key={delivery.uuid}
+          delivery={delivery}
+          routeIndex={startIndex + idx}
+          onStatusChange={onStatusChange}
+          onCall={onCall}
+          onNavigate={onNavigate}
+          onProofRequired={onProofRequired}
+          loading={loadingMap === delivery.uuid}
+        />
+      ))}
+    </div>
+  </section>
+);
+
+interface ShiftCompleteCardProps {
+  earnings: number;
+  onEndShift: () => void;
+}
+
+const ShiftCompleteCard: React.FC<ShiftCompleteCardProps> = ({
+  earnings,
+  onEndShift,
+}) => (
+  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center space-y-4">
+    <h2 className="text-xl font-bold text-emerald-900">Shift Complete 🎉</h2>
+    <p className="text-emerald-700">Total earnings: ${earnings.toFixed(2)}</p>
+    <button
+      onClick={onEndShift}
+      className="px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500"
+    >
+      End Shift
+    </button>
+  </div>
+);
+
+// ----- Main Dashboard -----
 
 const DriverDashboard: React.FC = () => {
-  const { user, logout } = useAuth();
-  const { deliveries, setDeliveries, loading, error, offline, refetch } = useDeliveries();
-  const [selectedDelivery, setSelectedDelivery] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const refreshing = false;
-  const [updatingUuid, setUpdatingUuid] = useState<string | null>(null);
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
-  const syncPosition = useCallback(async (pos: GPSPosition) => {
-    try {
-      await api.post('/api/driver/location', pos);
-    } catch (err) {
-      // Background sync, suppress errors
-    }
-  }, []);
+  const displayName = user?.first_name
+    ? `${user.first_name} ${user.last_name || ""}`.trim()
+    : "Driver";
 
-  const { status: gpsStatus, position } = useGPS(syncPosition);
+  const {
+    deliveries,
+    loading,
+    error,
+    offline,
+    updateDeliveryStatus,
+    syncQueue,
+  } = useDeliveries();
 
-  // Derived state
-  const earnings = useMemo(() => {
-    const delivered = deliveries.filter((d: Delivery) => d.delivery_status === 'delivered');
-    return delivered.reduce((sum: number, d: Delivery) => sum + (d.earnings || 50), 0);
-  }, [deliveries]);
+  const { status: gpsStatus } = useGPS();
+  const { formattedTime, stop, reset } = useShiftTimer();
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [proofModalDelivery, setProofModalDelivery] = useState<Delivery | null>(null);
+
+  // Memoized derived data
   const filteredDeliveries = useMemo(() => {
-    if (!searchQuery.trim()) return deliveries;
-    const q = searchQuery.toLowerCase();
-    return deliveries.filter(
-      (d: Delivery) => d.customer_name?.toLowerCase().includes(q) || d.address?.toLowerCase().includes(q)
-    );
+    const searched = searchDeliveries(deliveries, searchQuery);
+    return sortDeliveriesByTime(searched);
   }, [deliveries, searchQuery]);
 
-  const sortedDeliveries = useMemo(
-    () => [...filteredDeliveries].sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime()),
+  const stats = useMemo(
+    () => getRouteStats(filteredDeliveries),
     [filteredDeliveries]
   );
 
-  const nextDelivery = sortedDeliveries[0];
-  const routeDeliveries = sortedDeliveries.slice(1);
+  const nextDelivery = useMemo(
+    () =>
+      filteredDeliveries.find(
+        (d) =>
+          d.delivery_status === "pending" ||
+          d.delivery_status === "in_transit" ||
+          d.delivery_status === "arrived"
+      ),
+    [filteredDeliveries]
+  );
 
-  const completedCount = deliveries.filter((d: Delivery) => d.delivery_status === 'delivered').length;
-  const completionPercent = deliveries.length ? Math.round((completedCount / deliveries.length) * 100) : 0;
+  const remainingDeliveries = useMemo(
+    () =>
+      filteredDeliveries.filter(
+        (d) => d !== nextDelivery && d.delivery_status !== "delivered"
+      ),
+    [filteredDeliveries, nextDelivery]
+  );
 
-  // Actions
-  const handleStatusUpdate = async (uuid: string, status: string) => {
-    try {
-      setUpdatingUuid(uuid);
-      setDeliveries((prev: Delivery[]) => prev.map((d: Delivery) => (d.uuid === uuid ? { ...d, delivery_status: status as any } : d)));
+  const completedDeliveries = useMemo(
+    () => filteredDeliveries.filter((d) => d.delivery_status === "delivered"),
+    [filteredDeliveries]
+  );
+
+  const allDeliveriesCompleted =
+    completedDeliveries.length === filteredDeliveries.length &&
+    filteredDeliveries.length > 0;
+
+  // Handlers
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem("token");
+    navigate("/login");
+  }, [navigate]);
+
+  const handleStatusChange = useCallback(
+    async (uuid: string, status: Delivery["delivery_status"]) => {
+      setActionLoading(uuid);
       try {
-        await api.patch(`/api/deliveries/${uuid}/status`, { delivery_status: status });
+        await updateDeliveryStatus(uuid, status);
       } catch (err) {
-        console.error('Status sync failed, local update applied', err);
+        toast.error("Failed to update status");
+      } finally {
+        setActionLoading(null);
       }
-    } finally {
-      setUpdatingUuid(null);
+    },
+    [updateDeliveryStatus]
+  );
+
+  const handleCall = useCallback((delivery: Delivery) => {
+    if (delivery.customer_phone) {
+      window.location.href = `tel:${delivery.customer_phone}`;
     }
-  };
+  }, []);
 
-  const handleCall = (phone?: string) => {
-    if (phone) window.location.href = `tel:${phone}`;
-    else alert('No phone number available');
-  };
+  const handleNavigate = useCallback((delivery: Delivery) => {
+    if (delivery.address) {
+      window.open(
+        `https://maps.google.com/maps?q=${encodeURIComponent(
+          delivery.address
+        )}`,
+        "_blank"
+      );
+    }
+  }, []);
 
-  const handleNavigate = (address: string) => {
-    const encoded = encodeURIComponent(address);
-    window.open(`https://maps.google.com/?q=${encoded}`, '_blank');
-  };
+  const handleProofRequired = useCallback(
+    (uuid: string) => {
+      const delivery = deliveries.find((d) => d.uuid === uuid);
+      if (delivery) setProofModalDelivery(delivery);
+    },
+    [deliveries]
+  );
+
+  const handleProofSubmit = useCallback(
+    async (proof: { uuid: string; [key: string]: any }) => {
+      try {
+        await updateDeliveryStatus(proof.uuid, "delivered");
+        setProofModalDelivery(null);
+        toast.success("Delivery completed!");
+      } catch {
+        toast.error("Failed to complete delivery");
+      }
+    },
+    [updateDeliveryStatus]
+  );
+
+  const handleEndShift = useCallback(() => {
+    const earnings = deliveries.reduce((sum, d) => sum + (d.earnings || 0), 0);
+    stop();
+    reset();
+    toast.success(`Shift completed! Earnings: $${earnings.toFixed(2)}`);
+  }, [deliveries, stop, reset]);
+
+  // Loading state
+  if (loading) {
+    return <LoadingState message="Loading deliveries..." />;
+  }
+
+  // Error state
+  if (error) {
+    return <ErrorState message={error}/>;
+  }
+
+  // Empty state
+  if (deliveries.length === 0) {
+    return (
+      <EmptyState
+        title="No deliveries assigned"
+        description="Your route is empty. Check back later."
+      />
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-32 font-sans selection:bg-indigo-100">
+    <div className="min-h-screen bg-slate-50">
       <DriverHeader
-        user={user}
-        offline={offline}
+        driverName={displayName}
+        isOnline={!offline}
         gpsStatus={gpsStatus}
-        position={position}
-        earnings={earnings}
-        completionPercent={completionPercent}
+        shiftTime={formattedTime}
+        stats={stats}
         searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        refreshing={refreshing}
-        logout={logout}
+        onSearchChange={setSearchQuery}
+        syncQueueCount={syncQueue.length}
+        isOffline={offline}
+        onLogout={handleLogout}
       />
 
-      <main className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Error Boundary Alternative */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-start gap-3 shadow-sm">
-            <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={18} />
-            <div className="flex-1">
-              <p className="text-red-900 font-medium text-sm">{error}</p>
-              <button
-                onClick={() => refetch()}
-                className="text-red-600 hover:text-red-700 text-xs font-semibold mt-2 underline"
-              >
-                Try Again
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Loading Skeletons */}
-        {loading && (
-          <div className="space-y-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-32 bg-slate-200 rounded-2xl animate-pulse shadow-sm" />
-            ))}
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!loading && sortedDeliveries.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-64 text-center bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
-            <div className="w-16 h-16 bg-slate-50 flex items-center justify-center rounded-full mb-4">
-              <MapPin size={32} className="text-slate-300" />
-            </div>
-            <p className="text-slate-800 font-semibold text-lg">Route Complete</p>
-            <p className="text-sm text-slate-500 mt-1 max-w-xs leading-relaxed">
-              {searchQuery ? "No matches found for your search." : "You have processed all deliveries assigned to you."}
-            </p>
-          </div>
-        )}
-
-        {/* Next Priority Action */}
-        {!loading && nextDelivery && (
-          <div className="mb-10">
-            <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest list-none">
-                Priority Assignment
-              </h2>
-              {nextDelivery.delivery_status !== 'delivered' && (
-                <div className="flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                </div>
-              )}
-            </div>
-            
-            <motion.div initial={{ scale: 0.98, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
-              <NextDeliveryCard
-                delivery={nextDelivery}
-                routeIndex={1}
-                onStatusChange={handleStatusUpdate}
-                onProofRequired={setSelectedDelivery}
-                onCall={() => handleCall(nextDelivery.customer_phone)}
-                onNavigate={() => handleNavigate(nextDelivery.address)}
-                loading={updatingUuid === nextDelivery.uuid}
-              />
-            </motion.div>
-          </div>
-        )}
-
-        {/* Route Queue */}
-        {!loading && routeDeliveries.length > 0 && (
-          <div>
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
-              Upcoming Queue ({routeDeliveries.length})
+      <main className="px-4 py-6 space-y-6">
+        {/* Next delivery */}
+        {nextDelivery && (
+          <section aria-labelledby="next-delivery-heading">
+            <h2 id="next-delivery-heading" className="text-xs font-bold text-slate-500 uppercase mb-2">
+              Next Delivery
             </h2>
-            <div className="space-y-4">
-              <AnimatePresence>
-                {routeDeliveries.map((delivery, idx) => (
-                  <motion.div
-                    key={delivery.uuid}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ delay: idx * 0.05, duration: 0.2 }}
-                  >
-                    <RouteCard
-                      delivery={delivery}
-                      routeIndex={idx + 2}
-                      onStatusChange={handleStatusUpdate}
-                      onCall={() => handleCall(delivery.customer_phone)}
-                      onNavigate={() => handleNavigate(delivery.address)}
-                      onProofRequired={setSelectedDelivery}
-                      loading={updatingUuid === delivery.uuid}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          </div>
+            <NextDeliveryCard
+              delivery={nextDelivery}
+              routeIndex={1}
+              onStatusChange={handleStatusChange}
+              onCall={handleCall}
+              onNavigate={handleNavigate}
+              onProofRequired={handleProofRequired}
+              loading={actionLoading === nextDelivery.uuid}
+            />
+          </section>
+        )}
+
+        {/* Remaining deliveries */}
+        {remainingDeliveries.length > 0 && (
+          <DeliveryListSection
+            title={`Route Ahead (${remainingDeliveries.length})`}
+            deliveries={remainingDeliveries}
+            startIndex={2}
+            onStatusChange={handleStatusChange}
+            onCall={handleCall}
+            onNavigate={handleNavigate}
+            onProofRequired={handleProofRequired}
+            loadingMap={actionLoading}
+          />
+        )}
+
+        {/* Completed deliveries */}
+        {completedDeliveries.length > 0 && (
+          <DeliveryListSection
+            title={`Completed (${completedDeliveries.length})`}
+            deliveries={completedDeliveries}
+            startIndex={remainingDeliveries.length + 2}
+            onStatusChange={handleStatusChange}
+            onCall={handleCall}
+            onNavigate={handleNavigate}
+            onProofRequired={handleProofRequired}
+            loadingMap={actionLoading}
+            isCompleted
+          />
+        )}
+
+        {/* Shift complete banner */}
+        {allDeliveriesCompleted && (
+          <ShiftCompleteCard earnings={stats.totalEarnings} onEndShift={handleEndShift} />
         )}
       </main>
 
-      {/* Required Signature Handover */}
-      <AnimatePresence>
-        {selectedDelivery && (
-          <ProofModal
-            deliveryUuid={selectedDelivery}
-            onClose={() => setSelectedDelivery(null)}
-            onSuccess={() => {
-              setSelectedDelivery(null);
-              refetch(false);
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {proofModalDelivery && (
+        <ProofModal
+          delivery={proofModalDelivery}
+          isOpen={true}
+          onClose={() => setProofModalDelivery(null)}
+          onSubmit={handleProofSubmit}
+        />
+      )}
     </div>
   );
 };
