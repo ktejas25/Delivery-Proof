@@ -547,5 +547,48 @@ BEGIN
         d.scheduled_time ASC;
 END //
 
-DELIMITER ;
+CREATE PROCEDURE sp_aggregate_driver_performance()
+BEGIN
+    -- This SP aggregates raw deliveries into the driver_performance table
+    -- Usually run once a day via an Event Scheduler or Cron Job
+    
+    DECLARE v_period_start DATE;
+    DECLARE v_period_end DATE;
+    
+    SET v_period_start = DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 MONTH), '%Y-%m-01');
+    SET v_period_end = LAST_DAY(v_period_start);
 
+    INSERT INTO driver_performance (
+        driver_id, 
+        period_start, 
+        period_end, 
+        total_deliveries, 
+        on_time_rate, 
+        proof_score_avg, 
+        customer_rating_avg, 
+        disputes_count
+    )
+    SELECT 
+        d.driver_id,
+        DATE_FORMAT(d.created_at, '%Y-%m-01') as p_start,
+        LAST_DAY(d.created_at) as p_end,
+        COUNT(d.id),
+        (COUNT(CASE WHEN d.actual_arrival <= d.estimated_arrival THEN 1 END) * 100.0 / NULLIF(COUNT(d.id), 0)),
+        AVG(dp.verification_score),
+        AVG(dr.avg_rating),
+        COUNT(ds.id)
+    FROM deliveries d
+    LEFT JOIN delivery_proofs dp ON d.id = dp.delivery_id
+    LEFT JOIN disputes ds ON d.id = ds.delivery_id
+    JOIN drivers dr ON d.driver_id = dr.id
+    WHERE d.created_at >= v_period_start AND d.created_at <= CONCAT(v_period_end, ' 23:59:59')
+    GROUP BY d.driver_id, p_start, p_end
+    ON DUPLICATE KEY UPDATE 
+        total_deliveries = VALUES(total_deliveries),
+        on_time_rate = VALUES(on_time_rate),
+        proof_score_avg = VALUES(proof_score_avg),
+        customer_rating_avg = VALUES(customer_rating_avg),
+        disputes_count = VALUES(disputes_count);
+END //
+
+DELIMITER ;

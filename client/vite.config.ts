@@ -10,6 +10,9 @@ export default defineConfig({
       '/api': 'http://localhost:5000'
     }
   },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'recharts', 'leaflet', 'react-leaflet', 'lucide-react']
+  },
   build: {
     sourcemap: false
   }

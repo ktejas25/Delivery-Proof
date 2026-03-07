@@ -2,6 +2,7 @@ const express = require("express");
 const {
   register,
   login,
+  logout,
   getDrivers,
   createDriver,
 } = require("../controllers/authController");

@@ -139,10 +139,27 @@ const getDrivers = async (req, res) => {
   const { business_id } = req.user;
   try {
     const [rows] = await pool.query(
-      `SELECT d.id as driver_id, u.uuid, u.first_name, u.last_name, u.email, d.current_status as status, d.avg_rating as performance_score, d.last_location_lat, d.last_location_lng
-             FROM users u
-             JOIN drivers d ON u.id = d.user_id
-             WHERE u.business_id = ?`,
+      `SELECT 
+        d.id as driver_id, 
+        u.uuid, 
+        u.first_name, 
+        u.last_name, 
+        u.email, 
+        d.current_status as status, 
+        d.avg_rating, 
+        d.last_location_lat, 
+        d.last_location_lng,
+        (SELECT COALESCE(AVG(dp.verification_score), 0) 
+         FROM delivery_proofs dp 
+         JOIN deliveries del ON dp.delivery_id = del.id 
+         WHERE del.driver_id = d.id) as avg_proof_score,
+        (SELECT COUNT(*) 
+         FROM disputes ds 
+         JOIN deliveries del ON ds.delivery_id = del.id 
+         WHERE del.driver_id = d.id AND ds.status != 'resolved') as disputes_count
+      FROM users u
+      JOIN drivers d ON u.id = d.user_id
+      WHERE u.business_id = ?`,
       [business_id],
     );
     res.json(rows);

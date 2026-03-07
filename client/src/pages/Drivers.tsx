@@ -1,11 +1,24 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import api from "../services/api";
-import { User, Star, MapPin } from "lucide-react";
+import {
+  User,
+  Star,
+  MapPin,
+  AlertTriangle,
+  ShieldCheck,
+  TrendingUp,
+} from "lucide-react";
 import RegisterDriverModal from "../components/RegisterDriverModal";
+import DriverPerformanceModal from "../components/DriverPerformanceModal";
 
 const Drivers: React.FC = () => {
   const [drivers, setDrivers] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [selectedDriver, setSelectedDriver] = useState<{
+    uuid: string;
+    name: string;
+  } | null>(null);
+  const pollingRef = useRef<any>(null);
 
   const fetchDrivers = async () => {
     try {
@@ -18,6 +31,13 @@ const Drivers: React.FC = () => {
 
   useEffect(() => {
     fetchDrivers();
+
+    // Polling every 10 seconds (Section 7)
+    pollingRef.current = setInterval(fetchDrivers, 10000);
+
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
   }, []);
 
   const getStatusColor = (status: string) => {
@@ -34,6 +54,12 @@ const Drivers: React.FC = () => {
     }
   };
 
+  const getProofScoreColor = (score: number) => {
+    if (score >= 80) return { bg: "#E9F7EF", color: "#2BB673" };
+    if (score >= 60) return { bg: "#FFF7E6", color: "#FA8C16" };
+    return { bg: "#FFF1F0", color: "#FF4D4F" };
+  };
+
   return (
     <div style={{ padding: "24px" }}>
       {/* HEADER */}
@@ -45,7 +71,9 @@ const Drivers: React.FC = () => {
           marginBottom: "24px",
         }}
       >
-        <h2 style={{ fontSize: "24px", fontWeight: 600 }}>Driver Fleet</h2>
+        <h2 style={{ fontSize: "24px", fontWeight: 700, color: "#1E293B" }}>
+          Driver Fleet
+        </h2>
 
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
           Register Driver
@@ -57,13 +85,37 @@ const Drivers: React.FC = () => {
         {drivers.map((driver) => {
           const status = driver.status || "offline";
           const statusColor = getStatusColor(status);
+          const proofScore = Number(driver.avg_proof_score) || 0;
+          const proofColor = getProofScoreColor(proofScore);
+          const hasDisputes = driver.disputes_count > 0;
 
           return (
             <div
               key={driver.uuid}
               className="card"
-              style={{ gridColumn: "span 4" }}
+              style={{ gridColumn: "span 4", position: "relative" }}
             >
+              {/* DISPUTE WARNING */}
+              {hasDisputes && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "16px",
+                    left: "12px",
+                    background: "#FF4D4F",
+                    color: "white",
+                    padding: "4px",
+                    borderRadius: "8px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 2px 4px rgba(255, 77, 79, 0.3)",
+                  }}
+                >
+                  <AlertTriangle size={14} />
+                </div>
+              )}
+
               {/* DRIVER HEADER */}
               <div
                 style={{
@@ -71,6 +123,7 @@ const Drivers: React.FC = () => {
                   alignItems: "center",
                   gap: "16px",
                   marginBottom: "16px",
+                  marginTop: hasDisputes ? "10px" : "0",
                 }}
               >
                 <div
@@ -87,14 +140,21 @@ const Drivers: React.FC = () => {
                   <User size={24} color="var(--primary-mint)" />
                 </div>
 
-                <div>
-                  <h3 style={{ fontSize: "18px", marginBottom: "2px" }}>
+                <div style={{ flex: 1 }}>
+                  <h3
+                    style={{
+                      fontSize: "17px",
+                      fontWeight: 700,
+                      marginBottom: "2px",
+                      color: "#1E293B",
+                    }}
+                  >
                     {driver.first_name} {driver.last_name}
                   </h3>
 
                   <p
                     style={{
-                      fontSize: "14px",
+                      fontSize: "12px",
                       color: "var(--text-muted)",
                     }}
                   >
@@ -103,18 +163,38 @@ const Drivers: React.FC = () => {
                 </div>
 
                 {/* STATUS BADGE */}
-                <div style={{ marginLeft: "auto", textAlign: "right" }}>
+                <div style={{ textAlign: "right" }}>
                   <span
                     style={{
-                      padding: "4px 8px",
+                      padding: "4px 10px",
                       borderRadius: "8px",
-                      fontSize: "12px",
-                      fontWeight: 600,
+                      fontSize: "11px",
+                      fontWeight: 700,
                       background: statusColor.bg,
                       color: statusColor.color,
+                      display: "block",
+                      marginBottom: "4px",
                     }}
                   >
                     {status.replace("_", " ").toUpperCase()}
+                  </span>
+
+                  {/* PROOF SCORE BADGE */}
+                  <span
+                    style={{
+                      padding: "2px 8px",
+                      borderRadius: "6px",
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      background: proofColor.bg,
+                      color: proofColor.color,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "3px",
+                    }}
+                  >
+                    <ShieldCheck size={10} />
+                    {proofScore.toFixed(0)}%
                   </span>
                 </div>
               </div>
@@ -135,8 +215,10 @@ const Drivers: React.FC = () => {
                 <div>
                   <p
                     style={{
-                      fontSize: "12px",
+                      fontSize: "11px",
                       color: "var(--text-muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
                       marginBottom: "4px",
                     }}
                   >
@@ -152,8 +234,14 @@ const Drivers: React.FC = () => {
                   >
                     <Star size={14} fill="#FFC107" stroke="#FFC107" />
 
-                    <span style={{ fontWeight: 600 }}>
-                      {driver.avg_rating ?? "0.0"}
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        fontSize: "15px",
+                        color: "#1E293B",
+                      }}
+                    >
+                      {parseFloat(driver.avg_rating || 0).toFixed(1)}
                     </span>
                   </div>
                 </div>
@@ -162,8 +250,10 @@ const Drivers: React.FC = () => {
                 <div>
                   <p
                     style={{
-                      fontSize: "12px",
+                      fontSize: "11px",
                       color: "var(--text-muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
                       marginBottom: "4px",
                     }}
                   >
@@ -179,9 +269,15 @@ const Drivers: React.FC = () => {
                   >
                     <MapPin size={14} color="var(--primary-mint)" />
 
-                    <span style={{ fontSize: "13px" }}>
+                    <span
+                      style={{
+                        fontSize: "13px",
+                        color: "#1E293B",
+                        fontWeight: 500,
+                      }}
+                    >
                       {driver.last_location_lat && driver.last_location_lng
-                        ? `${driver.last_location_lat}, ${driver.last_location_lng}`
+                        ? `${parseFloat(driver.last_location_lat).toFixed(3)}, ${parseFloat(driver.last_location_lng).toFixed(3)}`
                         : "Unknown"}
                     </span>
                   </div>
@@ -192,12 +288,27 @@ const Drivers: React.FC = () => {
               <div style={{ marginTop: "20px" }}>
                 <button
                   className="btn"
+                  onClick={() =>
+                    setSelectedDriver({
+                      uuid: driver.uuid,
+                      name: `${driver.first_name} ${driver.last_name}`,
+                    })
+                  }
                   style={{
                     width: "100%",
                     background: "white",
                     border: "1px solid var(--border-color)",
+                    fontWeight: 600,
+                    fontSize: "14px",
+                    padding: "10px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    transition: "all 0.2s",
                   }}
                 >
+                  <TrendingUp size={16} />
                   View Performance History
                 </button>
               </div>
@@ -232,6 +343,15 @@ const Drivers: React.FC = () => {
             setShowModal(false);
             fetchDrivers();
           }}
+        />
+      )}
+
+      {/* PERFORMANCE MODAL */}
+      {selectedDriver && (
+        <DriverPerformanceModal
+          driverUuid={selectedDriver.uuid}
+          driverName={selectedDriver.name}
+          onClose={() => setSelectedDriver(null)}
         />
       )}
     </div>
