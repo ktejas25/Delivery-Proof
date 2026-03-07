@@ -20,8 +20,23 @@ const Drivers: React.FC = () => {
     fetchDrivers();
   }, []);
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "available":
+        return { bg: "#E9F7EF", color: "#2BB673" };
+      case "on_delivery":
+        return { bg: "#FFF7E6", color: "#FA8C16" };
+      case "break":
+        return { bg: "#E6F7FF", color: "#1890FF" };
+      case "offline":
+      default:
+        return { bg: "#FFF1F0", color: "#FF4D4F" };
+    }
+  };
+
   return (
     <div style={{ padding: "24px" }}>
+      {/* HEADER */}
       <div
         style={{
           display: "flex",
@@ -31,129 +46,166 @@ const Drivers: React.FC = () => {
         }}
       >
         <h2 style={{ fontSize: "24px", fontWeight: 600 }}>Driver Fleet</h2>
+
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          + Register Driver
+          Register Driver
         </button>
       </div>
 
+      {/* DRIVER GRID */}
       <div className="dashboard-grid">
-        {drivers.map((driver) => (
-          <div
-            key={driver.uuid}
-            className="card"
-            style={{ gridColumn: "span 4" }}
-          >
+        {drivers.map((driver) => {
+          const status = driver.status || "offline";
+          const statusColor = getStatusColor(status);
+
+          return (
             <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "16px",
-                marginBottom: "16px",
-              }}
+              key={driver.uuid}
+              className="card"
+              style={{ gridColumn: "span 4" }}
             >
+              {/* DRIVER HEADER */}
               <div
                 style={{
-                  width: "48px",
-                  height: "48px",
-                  borderRadius: "12px",
-                  background: "var(--bg-highlight)",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
+                  gap: "16px",
+                  marginBottom: "16px",
                 }}
               >
-                <User size={24} color="var(--primary-mint)" />
-              </div>
-              <div>
-                <h3 style={{ fontSize: "18px", marginBottom: "2px" }}>
-                  {driver.first_name} {driver.last_name}
-                </h3>
-                <p style={{ fontSize: "14px", color: "var(--text-muted)" }}>
-                  ID: {driver.uuid.slice(0, 8)}
-                </p>
-              </div>
-              <div style={{ marginLeft: "auto", textAlign: "right" }}>
-                <span
-                  style={{
-                    padding: "4px 8px",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    background:
-                      driver.status === "active" ? "#E9F7EF" : "#FFF1F0",
-                    color: driver.status === "active" ? "#2BB673" : "#FF4D4F",
-                  }}
-                >
-                  {(driver.status || "UNKNOWN").replace("_", " ").toUpperCase()}
-                </span>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "12px",
-                marginTop: "16px",
-                padding: "16px",
-                background: "var(--bg-secondary)",
-                borderRadius: "12px",
-              }}
-            >
-              <div>
-                <p
-                  style={{
-                    fontSize: "12px",
-                    color: "var(--text-muted)",
-                    marginBottom: "4px",
-                  }}
-                >
-                  Rating
-                </p>
                 <div
-                  style={{ display: "flex", alignItems: "center", gap: "4px" }}
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: "12px",
+                    background: "var(--bg-highlight)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <Star size={14} fill="#FFC107" stroke="#FFC107" />
-                  <span style={{ fontWeight: 600 }}>
-                    {driver.performance_score}
+                  <User size={24} color="var(--primary-mint)" />
+                </div>
+
+                <div>
+                  <h3 style={{ fontSize: "18px", marginBottom: "2px" }}>
+                    {driver.first_name} {driver.last_name}
+                  </h3>
+
+                  <p
+                    style={{
+                      fontSize: "14px",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    ID: {driver.uuid?.slice(0, 8)}
+                  </p>
+                </div>
+
+                {/* STATUS BADGE */}
+                <div style={{ marginLeft: "auto", textAlign: "right" }}>
+                  <span
+                    style={{
+                      padding: "4px 8px",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      background: statusColor.bg,
+                      color: statusColor.color,
+                    }}
+                  >
+                    {status.replace("_", " ").toUpperCase()}
                   </span>
                 </div>
               </div>
-              <div>
-                <p
-                  style={{
-                    fontSize: "12px",
-                    color: "var(--text-muted)",
-                    marginBottom: "4px",
-                  }}
-                >
-                  Location
-                </p>
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "4px" }}
-                >
-                  <MapPin size={14} color="var(--primary-mint)" />
-                  <span style={{ fontSize: "13px" }}>
-                    {driver.current_location}
-                  </span>
-                </div>
-              </div>
-            </div>
 
-            <div style={{ marginTop: "20px" }}>
-              <button
-                className="btn"
+              {/* DRIVER DETAILS */}
+              <div
                 style={{
-                  width: "100%",
-                  background: "white",
-                  border: "1px solid var(--border-color)",
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "12px",
+                  marginTop: "16px",
+                  padding: "16px",
+                  background: "var(--bg-secondary)",
+                  borderRadius: "12px",
                 }}
               >
-                View Performance History
-              </button>
+                {/* RATING */}
+                <div>
+                  <p
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--text-muted)",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Rating
+                  </p>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <Star size={14} fill="#FFC107" stroke="#FFC107" />
+
+                    <span style={{ fontWeight: 600 }}>
+                      {driver.avg_rating ?? "0.0"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* LOCATION */}
+                <div>
+                  <p
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--text-muted)",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Location
+                  </p>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <MapPin size={14} color="var(--primary-mint)" />
+
+                    <span style={{ fontSize: "13px" }}>
+                      {driver.last_location_lat && driver.last_location_lng
+                        ? `${driver.last_location_lat}, ${driver.last_location_lng}`
+                        : "Unknown"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ACTION BUTTON */}
+              <div style={{ marginTop: "20px" }}>
+                <button
+                  className="btn"
+                  style={{
+                    width: "100%",
+                    background: "white",
+                    border: "1px solid var(--border-color)",
+                  }}
+                >
+                  View Performance History
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
+
+        {/* EMPTY STATE */}
         {drivers.length === 0 && (
           <div
             style={{
@@ -164,6 +216,7 @@ const Drivers: React.FC = () => {
             }}
           >
             <User size={48} style={{ margin: "0 auto 16px", opacity: 0.2 }} />
+
             <p style={{ marginBottom: "16px" }}>
               No drivers yet. Register your first driver!
             </p>
@@ -171,6 +224,7 @@ const Drivers: React.FC = () => {
         )}
       </div>
 
+      {/* REGISTER MODAL */}
       {showModal && (
         <RegisterDriverModal
           onClose={() => setShowModal(false)}

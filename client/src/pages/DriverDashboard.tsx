@@ -93,7 +93,7 @@ const ShiftCompleteCard: React.FC<ShiftCompleteCardProps> = ({
 // ----- Main Dashboard -----
 
 const DriverDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const displayName = user?.first_name
@@ -159,10 +159,10 @@ const DriverDashboard: React.FC = () => {
     filteredDeliveries.length > 0;
 
   // Handlers
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem("token");
+  const handleLogout = useCallback(async () => {
+    await logout();
     navigate("/login");
-  }, [navigate]);
+  }, [logout, navigate]);
 
   const handleStatusChange = useCallback(
     async (uuid: string, status: Delivery["delivery_status"]) => {
