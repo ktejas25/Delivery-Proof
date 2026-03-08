@@ -406,8 +406,8 @@ const DriverPerformanceModal: React.FC<DriverPerformanceModalProps> = ({
                   Weekly Deliveries
                 </h3>
               </div>
-              <div style={{ height: "250px" }}>
-                <ResponsiveContainer width="100%" height="100%">
+              <div style={{ height: "250px", width: "100%", display: "flex" }}>
+                <ResponsiveContainer width="99%" height="100%">
                   <BarChart data={data?.history.slice().reverse()}>
                     <CartesianGrid
                       strokeDasharray="3 3"
@@ -474,8 +474,8 @@ const DriverPerformanceModal: React.FC<DriverPerformanceModalProps> = ({
                   Proof Score Trend
                 </h3>
               </div>
-              <div style={{ height: "250px" }}>
-                <ResponsiveContainer width="100%" height="100%">
+              <div style={{ height: "250px", width: "100%", display: "flex" }}>
+                <ResponsiveContainer width="99%" height="100%">
                   <LineChart data={data?.history.slice().reverse()}>
                     <CartesianGrid
                       strokeDasharray="3 3"
@@ -665,7 +665,7 @@ const DriverPerformanceModal: React.FC<DriverPerformanceModalProps> = ({
                                   : "#FA8C16",
                             }}
                           >
-                            {delivery.status.toUpperCase()}
+                            {(delivery.status || "Unknown").toUpperCase()}
                           </span>
                         </td>
                         <td style={{ padding: "16px 24px" }}>
@@ -963,8 +963,7 @@ const DriverPerformanceModal: React.FC<DriverPerformanceModalProps> = ({
             display: "flex",
             justifyContent: "flex-end",
           }}
-        >
-        </div>
+        ></div>
       </motion.div>
     </div>
   );

@@ -349,6 +349,7 @@ const Drivers: React.FC = () => {
       {/* PERFORMANCE MODAL */}
       {selectedDriver && (
         <DriverPerformanceModal
+          key={selectedDriver.uuid}
           driverUuid={selectedDriver.uuid}
           driverName={selectedDriver.name}
           onClose={() => setSelectedDriver(null)}
