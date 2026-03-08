@@ -1,12 +1,83 @@
-remaining with 
-Driver Performance history:
-average rating
-on-time rate
-proof score
-disputes
-toatl distance
-enhance weekley deliveries, poof score trend
-Recent deliveris:
-Date and score shows NA
-Risk alerts chart
-Recent Route History chart
+1. Driver Performance History
+1.1 Implement Average Rating
+1.2 Implement On-Time Delivery Rate
+1.3 Implement Proof Score
+1.4 Implement Disputes Count
+1.5 Implement Total Distance Travelled
+1.6 Fix issue where only one driver's performance history is displayed
+
+2. Performance Analytics
+2.1 Add Weekly Deliveries Chart
+2.2 Add Proof Score Trend Graph
+2.3 Add Risk Alerts Chart
+
+3. Recent Deliveries
+3.1 Fix issue where Date shows NA
+3.2 Fix issue where Score shows NA
+3.3 Ensure recent deliveries show Date
+3.4 Ensure recent deliveries show Delivery Score
+3.5 Ensure recent deliveries show Driver
+3.6 Ensure recent deliveries show Status
+
+4. Route Tracking
+4.1 Add Recent Route History Chart
+
+5. Driver Verification
+5.1 Validate license number format
+5.2 Prevent duplicate license numbers
+5.3 Add optional license expiry validation
+
+6. Dashboard Improvements
+6.1 Add Total Deliveries stat
+6.2 Add Successful Deliveries stat
+6.3 Add Delayed Deliveries stat
+6.4 Add Failed Deliveries stat
+6.5 Add Average Delivery Time stat
+6.6 Add Driver Performance Summary
+
+7. Admin Settings Page
+7.1 Create Admin Settings page
+7.2 Add System configuration settings
+7.3 Add Language settings
+7.4 Add Delivery default settings
+7.5 Add User management (optional)
+7.6 Add Notification settings
+
+8. Deliveries Page Improvements
+
+Filters & Sorting
+8.1 Add Order search filter
+8.2 Add Customer sort filter
+8.3 Add Address search filter
+8.4 Add Driver sort filter
+8.5 Add Status sort filter
+
+Status Handling
+8.6 Review status change logic
+8.7 Decide if disputes should be removed when status changes
+
+9. Codebase Cleanup
+9.1 Remove hardcoded text
+9.2 Implement language localization system
+9.3 Move UI strings to language/config files
+
+10. Customer Portal (New Feature)
+
+Customer Authentication
+10.1 Customer login
+10.2 Customer signup
+10.3 Password reset
+10.4 Profile management
+
+Customer Dashboard
+10.5 Delivery history
+10.6 Delivery tracking
+10.7 Driver ratings
+10.8 Dispute / support submission
+10.9 Saved addresses
+
+11. Driver Page Improvements
+11.1 Enable customer rating for drivers
+11.2 Fix issue where rating shows 0.0
+11.3 Implement average rating calculation
+11.4 Display rating on driver profile

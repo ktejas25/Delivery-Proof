@@ -6,7 +6,6 @@ import {
   Users,
   UserCircle,
   LogOut,
-  Search,
   Bell,
   TrendingUp,
   ShieldCheck,
@@ -123,31 +122,7 @@ const Dashboard: React.FC = () => {
           >
             <div
               style={{ position: "relative", maxWidth: "400px", width: "100%" }}
-            >
-              <Search
-                size={18}
-                style={{
-                  position: "absolute",
-                  left: "12px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "var(--text-muted)",
-                }}
-              />
-              <input
-                type="text"
-                placeholder="Search deliveries, drivers..."
-                style={{
-                  width: "100%",
-                  padding: "10px 16px 10px 40px",
-                  borderRadius: "10px",
-                  border: "1px solid var(--border-color)",
-                  background: "var(--bg-secondary)",
-                  outline: "none",
-                  fontSize: "14px",
-                }}
-              />
-            </div>
+            ></div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
             <div style={{ position: "relative", cursor: "pointer" }}>
