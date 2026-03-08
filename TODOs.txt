@@ -22,7 +22,7 @@
 4. Route Tracking
 4.1 Add Recent Route History Chart
 
-5. Driver Verification
+5. Driver Verification --- done
 5.1 Validate license number format
 5.2 Prevent duplicate license numbers
 5.3 Add optional license expiry validation
