@@ -8,6 +8,7 @@ interface User {
   last_name: string;
   user_type: string;
   business_name: string;
+  name?: string;
 }
 
 interface AuthContextType {
@@ -15,6 +16,8 @@ interface AuthContextType {
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (data: any) => Promise<void>;
+  customerLogin: (email: string, password: string) => Promise<void>;
+  customerRegister: (data: any) => Promise<void>;
   logout: () => void;
   loading: boolean;
 }
@@ -43,7 +46,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const register = async (data: any) => {
     await api.post("/auth/register", data);
-    // After registration, user typically needs to login
+  };
+
+  const customerLogin = async (email: string, password: string) => {
+    const response = await api.post("/customer/login", { email, password });
+    const { token, user } = response.data;
+    setToken(token);
+    setUser(user);
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(user));
+  };
+
+  const customerRegister = async (data: any) => {
+    await api.post("/customer/register", data);
   };
 
   const logout = async () => {
@@ -69,7 +84,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <AuthContext.Provider
-      value={{ user, token, login, register, logout, loading }}
+      value={{
+        user,
+        token,
+        login,
+        register,
+        customerLogin,
+        customerRegister,
+        logout,
+        loading,
+      }}
     >
       {children}
     </AuthContext.Provider>
