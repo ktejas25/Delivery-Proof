@@ -276,17 +276,18 @@ const rateDriver = async (req, res) => {
   try {
     // get driver_id from delivery
     const [dels] = await pool.query(
-      "SELECT driver_id FROM deliveries WHERE id = ? AND customer_id = ?",
+      "SELECT id, driver_id FROM deliveries WHERE uuid = ? AND customer_id = ?",
       [delivery_id, customer_id],
     );
     if (dels.length === 0)
       return res.status(404).json({ message: "Delivery not found" });
 
+    const internal_delivery_id = dels[0].id;
     const driver_id = dels[0].driver_id;
 
     // Call sp
     await pool.query("CALL sp_submit_driver_rating(?, ?, ?, ?, ?)", [
-      delivery_id,
+      internal_delivery_id,
       driver_id,
       customer_id,
       rating,
@@ -304,13 +305,23 @@ const rateDriver = async (req, res) => {
 
 const submitDispute = async (req, res) => {
   const customer_id = req.user.customer_id;
-  const { delivery_id, dispute_type, claim } = req.body;
+  const { delivery_uuid, issue_type, details } = req.body;
   try {
+    const [dels] = await pool.query(
+      "SELECT id FROM deliveries WHERE uuid = ? AND customer_id = ?",
+      [delivery_uuid, customer_id]
+    );
+    
+    if (dels.length === 0) {
+      return res.status(404).json({ message: "Delivery not found" });
+    }
+
+    const internal_delivery_id = dels[0].id;
     const { v4: uuidv4 } = await import("uuid");
     const dUuid = uuidv4();
     await pool.query(
       "INSERT INTO disputes (uuid, delivery_id, dispute_type, customer_claim, status) VALUES (?, ?, ?, ?, 'open')",
-      [dUuid, delivery_id, dispute_type, claim],
+      [dUuid, internal_delivery_id, issue_type, details],
     );
     res.status(201).json({ message: "Dispute submitted" });
   } catch (err) {

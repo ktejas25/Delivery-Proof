@@ -81,3 +81,8 @@ Customer Dashboard
 11.2 Fix issue where rating shows 0.0
 11.3 Implement average rating calculation
 11.4 Display rating on driver profile
+
+
+
+customer dashboard enhance
+-- made some changes but remaining with order display on customer dashboard and other functionalities
