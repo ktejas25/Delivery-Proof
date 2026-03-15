@@ -160,7 +160,7 @@ const Dashboard: React.FC = () => {
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <div style={{ textAlign: "right" }}>
                 <p style={{ fontSize: "14px", fontWeight: 600 }}>
-                  {user?.first_name || "Admin"} {user?.last_name || ""}
+                  {user?.name || (user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : null) || user?.email?.split('@')[0] || "Administrator"}
                 </p>
                 <p style={{ fontSize: "12px", color: "var(--text-muted)" }}>
                   {user?.business_name || "Organization"}

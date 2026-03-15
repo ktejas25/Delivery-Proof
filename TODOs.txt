@@ -85,4 +85,5 @@ Customer Dashboard
 
 
 customer dashboard enhance
--- made some changes but remaining with order display on customer dashboard and other functionalities
+-- remmaing with enhancemnet of the order/ delivery cars and customer dashboard
+-- the location is not shown the enhanemnet of it is required

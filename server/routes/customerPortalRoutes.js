@@ -9,6 +9,7 @@ router.post("/register", customerPortalCtrl.register);
 router.post("/login", customerPortalCtrl.login);
 router.post("/forgot-password", customerPortalCtrl.forgotPassword);
 router.post("/reset-password", customerPortalCtrl.resetPassword);
+router.get("/ping", (req, res) => res.json({ pong: true }));
 
 // Protected routes
 router.use(authenticateToken);
@@ -18,6 +19,7 @@ router.get("/profile", customerPortalCtrl.getProfile);
 router.put("/profile", customerPortalCtrl.updateProfile);
 
 // Deliveries
+router.get("/upcoming-orders-count", customerPortalCtrl.getUpcomingOrdersCount);
 router.get("/deliveries", customerPortalCtrl.getDeliveries);
 router.get("/delivery/:uuid", customerPortalCtrl.getDeliveryDetails);
 router.get("/delivery/:uuid/track", customerPortalCtrl.trackDelivery);

@@ -9,6 +9,8 @@
 @theme {
   --color-emerald-500: #2bb673;
   --color-emerald-600: #1f9e6f;
+  --breakpoint-2xl: 1440px;
+  --breakpoint-3xl: 1600px;
 }
 
 :root {

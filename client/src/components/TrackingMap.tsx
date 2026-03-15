@@ -28,14 +28,20 @@ const destinationIcon = new L.Icon({
   shadowSize: [41, 41]
 });
 
+// Helper to validate coordinates
+const isValid = (loc: any) => loc && typeof loc.lat === 'number' && typeof loc.lng === 'number' && !isNaN(loc.lat) && !isNaN(loc.lng);
+
 const RecenterMap: React.FC<{ location: any; destination: any }> = ({ location, destination }) => {
   const map = useMap();
   useEffect(() => {
-    if (location && destination) {
+    
+    if (isValid(location) && isValid(destination)) {
       const bounds = L.latLngBounds([location.lat, location.lng], [destination.lat, destination.lng]);
       map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
-    } else if (location) {
+    } else if (isValid(location)) {
       map.setView([location.lat, location.lng], 15);
+    } else if (isValid(destination)) {
+      map.setView([destination.lat, destination.lng], 15);
     }
   }, [location, destination, map]);
   return null;
@@ -47,13 +53,13 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
   const { location, destination, status, connected } = useDeliveryTracking(deliveryUuid);
 
   const polylinePositions = useMemo(() => {
-    if (location && destination) {
+    if (isValid(location) && isValid(destination)) {
       return [[location.lat, location.lng], [destination.lat, destination.lng]] as [number, number][];
     }
     return [];
   }, [location, destination]);
 
-  if (!location) {
+  if (!isValid(location) && !isValid(destination)) {
     return (
       <div className="h-full w-full bg-slate-50 flex flex-col items-center justify-center gap-4">
         <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -61,6 +67,10 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
       </div>
     );
   }
+
+  const mapCenter: [number, number] = isValid(location) 
+    ? [location.lat, location.lng] 
+    : [destination.lat, destination.lng];
 
   return (
     <div className="relative h-full w-full">
@@ -73,34 +83,39 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
       </div>
 
       <MapContainer
-        center={[location.lat, location.lng]}
+        center={mapCenter}
         zoom={15}
         zoomControl={false}
-        style={{ height: "100%", width: "100%", background: '#F8FAFC' }}
+        style={{ height: "100%", width: "100%", background: "#F8FAFC" }}
         scrollWheelZoom={false}
       >
-        <TileLayer 
+        <TileLayer
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
-        
+
         {/* Route Line */}
         {polylinePositions.length > 0 && (
-          <Polyline 
-            positions={polylinePositions} 
-            color="#6366f1" 
-            weight={3} 
-            opacity={0.6} 
+          <Polyline
+            positions={polylinePositions}
+            color="#6366f1"
+            weight={3}
+            opacity={0.6}
             dashArray="10, 10"
           />
         )}
 
         {/* Destination Marker */}
-        {destination && (
-          <Marker position={[destination.lat, destination.lng]} icon={destinationIcon}>
+        {isValid(destination) && (
+          <Marker
+            position={[destination.lat, destination.lng]}
+            icon={destinationIcon}
+          >
             <Popup className="custom-popup">
               <div className="p-1">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Destination</p>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
+                  Destination
+                </p>
                 <p className="text-sm font-bold text-gray-900">Delivery Point</p>
               </div>
             </Popup>
@@ -108,14 +123,20 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
         )}
 
         {/* Driver Marker */}
-        <Marker position={[location.lat, location.lng]} icon={driverIcon}>
-          <Popup className="custom-popup">
-            <div className="p-1">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Active Driver</p>
-              <p className="text-sm font-bold text-gray-900 capitalize">{status.replace("_", " ")}</p>
-            </div>
-          </Popup>
-        </Marker>
+        {isValid(location) && (
+          <Marker position={[location.lat, location.lng]} icon={driverIcon}>
+            <Popup className="custom-popup">
+              <div className="p-1">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
+                  Active Driver
+                </p>
+                <p className="text-sm font-bold text-gray-900 capitalize">
+                  {status.replace("_", " ")}
+                </p>
+              </div>
+            </Popup>
+          </Marker>
+        )}
 
         <RecenterMap location={location} destination={destination} />
       </MapContainer>
