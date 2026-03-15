@@ -1,42 +1,60 @@
 import { useAuth } from "../../contexts/AuthContext";
 import { FaTruck, FaSignOutAlt } from "react-icons/fa";
 import NotificationBell from "./NotificationBell";
+import { useEffect, useState } from "react";
+import api from "../../services/api";
+
 
 const CustomerHeader = ({ user }: any) => {
   const { logout } = useAuth();
 
-  const initials = user?.name?.charAt(0)?.toUpperCase() || "U";
+
+
+  const [upcomingOrdersCount, setUpcomingOrdersCount] = useState(0);
+
+  useEffect(() => {
+    const fetchUpcomingOrdersCount = async () => {
+      try {
+        const response = await api.get("/customer/upcoming-orders-count");
+        setUpcomingOrdersCount(response.data.count);
+      } catch (error) {
+        console.error("Error fetching upcoming orders count:", error);
+      }
+    };
+    fetchUpcomingOrdersCount();
+  }, []);
 
   return (
     <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 md:px-6">
+      <div className="max-w-[1440px] mx-auto px-4 md:px-8">
         <div className="flex items-center justify-between h-20">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+            <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-200">
               <FaTruck size={20} />
             </div>
             <div>
               <h1 className="text-xl font-extrabold text-gray-900 tracking-tight">
-                Swift<span className="text-indigo-600">Drop</span>
+                Delivery<span className="text-green-600">Proof</span>
               </h1>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">
-                Customer Portal
-              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-4 md:gap-8">
             <div className="hidden md:block">
-              <NotificationBell count={2} />
+              {/* TODO: Add notification bell */}
+              {/*create an const to update  the count on notification bell should be updated based on the number of upcoming orders */}
+              <NotificationBell count={upcomingOrdersCount} />
             </div>
 
             <div className="flex items-center gap-3 pl-4 border-l border-gray-100">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-gray-900 leading-none">{user?.name}</p>
-                <p className="text-[11px] text-gray-400 font-medium">Verified Customer</p>
+                <p className="text-sm font-bold text-gray-900 leading-none">
+                  {user?.name || (user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : null) || user?.email?.split('@')[0] || "Valued Customer"}
+                </p>
+                <p className="text-[11px] text-gray-400 font-medium">{user?.user_type?.toUpperCase()}</p>
               </div>
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-full flex items-center justify-center font-bold shadow-md border-2 border-white">
-                {initials}
+                {user?.name?.charAt(0) || user?.first_name?.charAt(0) || user?.email?.charAt(0).toUpperCase() || "?"}
               </div>
             </div>
 
@@ -54,4 +72,4 @@ const CustomerHeader = ({ user }: any) => {
   );
 };
 
-export default CustomerHeader;
+export default CustomerHeader;

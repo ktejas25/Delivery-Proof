@@ -27,9 +27,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [user, setUser] = useState<User | null>(
-    JSON.parse(localStorage.getItem("user") || "null"),
-  );
+  const [user, setUser] = useState<User | null>(() => {
+    const stored = localStorage.getItem("user");
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    return {
+      ...parsed,
+      first_name: parsed.first_name || parsed.name?.split(' ')[0] || '',
+      last_name: parsed.last_name || parsed.name?.split(' ').slice(1).join(' ') || ''
+    };
+  });
   const [token, setToken] = useState<string | null>(
     localStorage.getItem("token"),
   );
@@ -74,11 +81,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   useEffect(() => {
-    // Hydrate from localStorage
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
     setLoading(false);
   }, []);
 

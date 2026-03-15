@@ -118,6 +118,7 @@ const login = async (req, res) => {
         email: user.email,
         first_name: user.first_name,
         last_name: user.last_name,
+        name: `${user.first_name} ${user.last_name}`.trim(),
         user_type: user.user_type,
         business_name: user.business_name,
       },

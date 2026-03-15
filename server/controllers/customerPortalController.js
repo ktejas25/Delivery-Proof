@@ -127,8 +127,10 @@ const login = async (req, res) => {
       user: {
         uuid: user.uuid,
         email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        name: customer.name || `${user.first_name} ${user.last_name}`.trim() || 'Valued Customer',
         user_type: user.user_type,
-        name: customer.name,
       },
     });
   } catch (err) {
@@ -203,7 +205,10 @@ const getProfile = async (req, res) => {
     if (!customer_id) return res.status(404).json({ message: "Profile not found" });
 
     const [rows] = await pool.query(
-      "SELECT id, uuid, name, phone, email, address FROM customers WHERE id = ?",
+      `SELECT c.id, c.uuid, c.name, c.phone, c.email, c.address, u.first_name, u.last_name 
+       FROM customers c 
+       JOIN users u ON c.email = u.email 
+       WHERE c.id = ?`,
       [customer_id],
     );
     res.json(rows[0] || {});
@@ -456,6 +461,28 @@ const deleteAddress = async (req, res) => {
   }
 };
 
+const getUpcomingOrdersCount = async (req, res) => {
+  let customer_id = req.user.customer_id;
+  try {
+    if (!customer_id) {
+       const [users] = await pool.query("SELECT email FROM users WHERE id = ?", [req.user.id]);
+       if (users[0]) {
+         const [customers] = await pool.query("SELECT id FROM customers WHERE email = ?", [users[0].email]);
+         customer_id = customers[0]?.id;
+       }
+    }
+    if (!customer_id) return res.json({ count: 0 });
+
+    const [rows] = await pool.query(
+      "SELECT COUNT(*) as count FROM deliveries WHERE customer_id = ? AND delivery_status IN ('pending', 'scheduled', 'dispatched', 'en_route', 'arrived')",
+      [customer_id],
+    );
+    res.json({ count: rows[0].count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -472,4 +499,5 @@ module.exports = {
   createAddress,
   updateAddress,
   deleteAddress,
+  getUpcomingOrdersCount,
 };

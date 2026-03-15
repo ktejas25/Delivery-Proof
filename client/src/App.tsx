@@ -34,7 +34,7 @@ const RoleBasedRedirect: React.FC = () => {
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <Router>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Toaster position="top-center" />
         <Routes>
           <Route path="/login" element={<LoginPage />} />

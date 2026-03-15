@@ -167,7 +167,7 @@ const CustomerDashboard = () => {
     <div className="min-h-screen bg-[#F8FAFC] pb-20">
       <CustomerHeader user={user} />
 
-      <main className="max-w-7xl mx-auto px-4 md:px-8 py-12 space-y-12">
+      <main className="max-w-[1440px] mx-auto px-4 md:px-8 py-12 space-y-12">
         {/* Welcome Section */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 border-b border-gray-100 pb-10">
           <div className="space-y-2">
@@ -183,7 +183,7 @@ const CustomerDashboard = () => {
                System Online
              </motion.div>
             <h2 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight leading-none">
-              Hello, <span className="text-indigo-600">{user?.name?.split(" ")[0] || "Guest"}!</span>
+              Hello, <span className="text-indigo-600">{user?.name || (user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : null) || user?.email?.split('@')[0] || "Valued Customer"}!</span>
             </h2>
             <p className="text-lg text-gray-400 font-bold max-w-xl">
               Track your packages in real-time and manage your delivery preferences.
@@ -234,7 +234,7 @@ const CustomerDashboard = () => {
                         variants={containerVariants}
                         initial="hidden"
                         animate="visible"
-                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10"
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5 gap-10"
                       >
                         {activeDeliveries.map((delivery) => (
                           <DeliveryCard
@@ -270,7 +270,7 @@ const CustomerDashboard = () => {
                         </button>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 opacity-60 hover:opacity-100 transition-opacity duration-500">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5 gap-10 opacity-60 hover:opacity-100 transition-opacity duration-500">
                         {pastDeliveriesList.slice(0, 3).map((delivery) => (
                           <DeliveryCard
                             key={delivery.uuid}
