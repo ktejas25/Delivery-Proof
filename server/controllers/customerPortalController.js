@@ -111,6 +111,7 @@ const login = async (req, res) => {
     const token = generateToken({
       id: user.id,
       uuid: user.uuid,
+      email: user.email,
       business_id: user.business_id,
       business_uuid: user.business_uuid,
       user_type: user.user_type,
@@ -189,8 +190,18 @@ const resetPassword = async (req, res) => {
 // ==========================================
 
 const getProfile = async (req, res) => {
-  const customer_id = req.user.customer_id;
+  let customer_id = req.user.customer_id;
   try {
+    if (!customer_id) {
+       const [users] = await pool.query("SELECT email FROM users WHERE id = ?", [req.user.id]);
+       if (users[0]) {
+         const [customers] = await pool.query("SELECT id FROM customers WHERE email = ?", [users[0].email]);
+         customer_id = customers[0]?.id;
+       }
+    }
+
+    if (!customer_id) return res.status(404).json({ message: "Profile not found" });
+
     const [rows] = await pool.query(
       "SELECT id, uuid, name, phone, email, address FROM customers WHERE id = ?",
       [customer_id],
@@ -202,7 +213,14 @@ const getProfile = async (req, res) => {
 };
 
 const updateProfile = async (req, res) => {
-  const customer_id = req.user.customer_id;
+  let customer_id = req.user.customer_id;
+  if (!customer_id) {
+     const [users] = await pool.query("SELECT email FROM users WHERE id = ?", [req.user.id]);
+     if (users[0]) {
+       const [customers] = await pool.query("SELECT id FROM customers WHERE email = ?", [users[0].email]);
+       customer_id = customers[0]?.id;
+     }
+  }
   const { name, phone, address } = req.body;
   try {
     await pool.query(
@@ -220,14 +238,43 @@ const updateProfile = async (req, res) => {
 // ==========================================
 
 const getDeliveries = async (req, res) => {
-  const customer_id = req.user.customer_id;
+  let customer_id = req.user.customer_id;
+  const email = req.user.email;
+
   try {
+    // Fallback if token doesn't have customer_id (e.g. old session)
+    if (!customer_id) {
+      const emailToUse = email || (await pool.query("SELECT email FROM users WHERE id = ?", [req.user.id]).then(([r]) => r[0]?.email));
+      
+      if (emailToUse) {
+        console.log(`[DEBUG] customer_id missing. Searching by email: ${emailToUse}`);
+        const [customers] = await pool.query(
+          "SELECT id FROM customers WHERE email = ?",
+          [emailToUse]
+        );
+        if (customers.length > 0) {
+          customer_id = customers[0].id;
+          console.log(`[DEBUG] Found customer_id: ${customer_id}`);
+        }
+      }
+    }
+
+    if (!customer_id) {
+      console.warn(`[DEBUG] No customer_id found for user ${req.user.id}`);
+      return res.json([]);
+    }
+
+    console.log(`[DEBUG] Calling sp_get_customer_delivery_history for customer: ${customer_id}`);
     const [rows] = await pool.query(
       "CALL sp_get_customer_delivery_history(?)",
       [customer_id],
     );
-    res.json(rows[0] || []);
+    
+    const results = rows[0] || [];
+    console.log(`[DEBUG] Returning ${results.length} deliveries`);
+    res.json(results);
   } catch (err) {
+    console.error(`[DEBUG] getDeliveries error:`, err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -334,8 +381,15 @@ const submitDispute = async (req, res) => {
 // ==========================================
 
 const getAddresses = async (req, res) => {
-  const customer_id = req.user.customer_id;
+  let customer_id = req.user.customer_id;
   try {
+    if (!customer_id) {
+       const [users] = await pool.query("SELECT email FROM users WHERE id = ?", [req.user.id]);
+       if (users[0]) {
+         const [customers] = await pool.query("SELECT id FROM customers WHERE email = ?", [users[0].email]);
+         customer_id = customers[0]?.id;
+       }
+    }
     const [rows] = await pool.query("CALL sp_get_customer_addresses(?)", [
       customer_id,
     ]);
@@ -346,7 +400,14 @@ const getAddresses = async (req, res) => {
 };
 
 const createAddress = async (req, res) => {
-  const customer_id = req.user.customer_id;
+  let customer_id = req.user.customer_id;
+  if (!customer_id) {
+     const [users] = await pool.query("SELECT email FROM users WHERE id = ?", [req.user.id]);
+     if (users[0]) {
+       const [customers] = await pool.query("SELECT id FROM customers WHERE email = ?", [users[0].email]);
+       customer_id = customers[0]?.id;
+     }
+  }
   const { label, address, lat, lng, is_default } = req.body;
   try {
     await pool.query(

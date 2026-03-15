@@ -66,10 +66,15 @@ async function applyUpdates() {
                 d.order_number,
                 d.delivery_status,
                 d.scheduled_time,
+                d.estimated_arrival,
                 d.actual_arrival,
+                d.created_at,
+                c.address AS delivery_address,
                 dr.id as driver_id,
-                CONCAT(u.first_name,' ',u.last_name) as driver_name
+                CONCAT(u.first_name,' ',u.last_name) as driver_name,
+                dr.avg_rating as driver_avg_rating
             FROM deliveries d
+            JOIN customers c ON d.customer_id = c.id
             LEFT JOIN drivers dr ON d.driver_id = dr.id
             LEFT JOIN users u ON dr.user_id = u.id
             WHERE d.customer_id = p_customer_id

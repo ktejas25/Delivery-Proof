@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     first_name VARCHAR(100),
     last_name VARCHAR(100),
-    user_type ENUM('driver', 'manager', 'admin') NOT NULL,
+        user_type ENUM('driver', 'manager', 'admin', 'analyst', 'support', 'customer') NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
     language_preference VARCHAR(10) DEFAULT 'en',
     last_login TIMESTAMP,
@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS deliveries (
     driver_id INT,
     customer_id INT NOT NULL,
     order_number VARCHAR(100),
-    delivery_status ENUM('scheduled', 'dispatched', 'en_route', 'arrived', 'delivered', 'failed', 'disputed') DEFAULT 'scheduled',
+        delivery_status ENUM('pending', 'scheduled', 'dispatched', 'en_route', 'arrived', 'delivered', 'failed', 'disputed', 'cancelled') DEFAULT 'pending',
     scheduled_time TIMESTAMP,
     estimated_arrival TIMESTAMP,
     actual_arrival TIMESTAMP,
@@ -589,6 +589,99 @@ BEGIN
         proof_score_avg = VALUES(proof_score_avg),
         customer_rating_avg = VALUES(customer_rating_avg),
         disputes_count = VALUES(disputes_count);
-END //
+    END //
 
-DELIMITER ;
+    CREATE PROCEDURE sp_get_customer_delivery_history(
+        IN p_customer_id INT
+    )
+    BEGIN
+        SELECT
+            d.uuid,
+            d.order_number,
+            d.delivery_status,
+            d.scheduled_time,
+            d.estimated_arrival,
+            d.actual_arrival,
+            d.created_at,
+            c.address AS delivery_address,
+            dr.id as driver_id,
+            CONCAT(u.first_name,' ',u.last_name) as driver_name,
+            dr.avg_rating as driver_avg_rating
+        FROM deliveries d
+        JOIN customers c ON d.customer_id = c.id
+        LEFT JOIN drivers dr ON d.driver_id = dr.id
+        LEFT JOIN users u ON dr.user_id = u.id
+        WHERE d.customer_id = p_customer_id
+        ORDER BY d.created_at DESC;
+    END //
+
+    CREATE PROCEDURE sp_track_delivery(
+        IN p_delivery_uuid VARCHAR(36)
+    )
+    BEGIN
+        SELECT
+            d.uuid,
+            d.delivery_status,
+            d.scheduled_time,
+            d.estimated_arrival,
+            c.name as customer_name,
+            c.address as customer_address,
+            dr.id as driver_id,
+            CONCAT(u.first_name,' ',u.last_name) as driver_name,
+            dr.last_location_lat,
+            dr.last_location_lng
+        FROM deliveries d
+        JOIN customers c ON d.customer_id = c.id
+        LEFT JOIN drivers dr ON d.driver_id = dr.id
+        LEFT JOIN users u ON dr.user_id = u.id
+        WHERE d.uuid = p_delivery_uuid;
+    END //
+
+    CREATE PROCEDURE sp_submit_driver_rating(
+        IN p_delivery_id INT,
+        IN p_driver_id INT,
+        IN p_customer_id INT,
+        IN p_rating INT,
+        IN p_comment TEXT
+    )
+    BEGIN
+        INSERT INTO driver_ratings(
+            delivery_id,
+            driver_id,
+            customer_id,
+            rating,
+            comment
+        )
+        VALUES(
+            p_delivery_id,
+            p_driver_id,
+            p_customer_id,
+            p_rating,
+            p_comment
+        );
+
+        UPDATE drivers
+        SET avg_rating = (
+            SELECT AVG(rating)
+            FROM driver_ratings
+            WHERE driver_id = p_driver_id
+        )
+        WHERE id = p_driver_id;
+    END //
+
+    CREATE PROCEDURE sp_get_customer_addresses(
+        IN p_customer_id INT
+    )
+    BEGIN
+        SELECT
+            id,
+            label,
+            address,
+            ST_X(location) AS lat,
+            ST_Y(location) AS lng,
+            is_default
+        FROM customer_addresses
+        WHERE customer_id = p_customer_id;
+    END //
+
+    DELIMITER ;

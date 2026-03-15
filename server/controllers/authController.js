@@ -74,12 +74,25 @@ const login = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
+    let customer_id = null;
+    if (user.user_type === "customer") {
+      const [customers] = await pool.query(
+        "SELECT id FROM customers WHERE email = ?",
+        [user.email],
+      );
+      if (customers.length > 0) {
+        customer_id = customers[0].id;
+      }
+    }
+
     const token = generateToken({
       id: user.id,
       uuid: user.uuid,
+      email: user.email,
       business_id: user.business_id,
       business_uuid: user.business_uuid,
       user_type: user.user_type,
+      customer_id: customer_id,
     });
 
     // Update last login

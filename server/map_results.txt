@@ -1,0 +1,24 @@
+{
+  "mapping": [
+    {
+      "user_id": 11,
+      "email": "suraj@gmail.com",
+      "customer_id": 2
+    },
+    {
+      "user_id": 12,
+      "email": "rohansharma@gmail.com",
+      "customer_id": 3
+    }
+  ],
+  "delCounts": [
+    {
+      "customer_id": 2,
+      "count": 16
+    },
+    {
+      "customer_id": 3,
+      "count": 9
+    }
+  ]
+}
