@@ -29,6 +29,7 @@ const disputeRoutes = require("./routes/disputeRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const driverRoutes = require("./routes/driverRoutes");
 const proofRoutes = require("./routes/proofRoutes");
+const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 app.use("/api/auth", authRoutes);
 app.use("/api/deliveries", deliveryRoutes);
 app.use("/api/customers", customerRoutes);
@@ -40,6 +41,8 @@ app.use("/api/upload", uploadRoutes);
 app.use("/api/driver", driverRoutes);
 app.use("/api/drivers", driverRoutes);
 app.use("/api/proofs", proofRoutes);
+app.use("/api/admin/dashboard", adminDashboardRoutes);
+app.use("/api/admin", adminDashboardRoutes);
 // Test DB connection
 app.get("/api/test-db", async (req, res) => {
   try {
@@ -60,8 +63,10 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
 
-module.exports = app;
+module.exports = { app, server };

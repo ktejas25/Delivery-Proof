@@ -85,6 +85,23 @@ const createDelivery = async (req, res) => {
       insertId,
     ]);
 
+    // Audit log
+    await pool.query(
+      `INSERT INTO audit_logs (business_id, user_id, user_type, action, entity_type, entity_id, new_values)
+       VALUES (?, ?, ?, 'DELIVERY_CREATED', 'delivery', ?, ?)`,
+      [business_id, req.user.id, req.user.user_type, insertId, JSON.stringify({ order_number, status: 'pending', priority: priority_level })]
+    );
+
+    // Real-time socket broadcast
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`business_${business_id}`).emit('dashboard_activity_update', {
+        action: 'DELIVERY_CREATED',
+        orderNumber: order_number,
+        status: 'pending'
+      });
+    }
+
     res.status(201).json({
       message: "Delivery created",
       uuid,
@@ -118,17 +135,40 @@ const updateDeliveryStatus = async (req, res) => {
       return res.status(404).json({ message: "Delivery not found" });
     }
 
-    // If status is changed to en_route, mark driver as on_delivery
-    if (status === "en_route") {
-      const [delivery] = await pool.query(
-        "SELECT driver_id FROM deliveries WHERE uuid = ?",
-        [uuid],
-      );
-      if (delivery.length > 0 && delivery[0].driver_id) {
+    // Get delivery details for audit & socket
+    const [delivery] = await pool.query(
+      "SELECT id, order_number, driver_id FROM deliveries WHERE uuid = ?",
+      [uuid],
+    );
+
+    if (delivery.length > 0) {
+      const delId = delivery[0].id;
+      const orderNum = delivery[0].order_number;
+
+      // If status is changed to en_route, mark driver as on_delivery
+      if (status === "en_route" && delivery[0].driver_id) {
         await pool.query(
           "UPDATE drivers SET current_status = 'on_delivery' WHERE id = ?",
           [delivery[0].driver_id],
         );
+      }
+
+      // Audit log
+      const actionName = status === 'delivered' ? 'DELIVERY_COMPLETED' : (status === 'failed' ? 'DELIVERY_FAILED' : 'STATUS_UPDATED');
+      await pool.query(
+        `INSERT INTO audit_logs (business_id, user_id, user_type, action, entity_type, entity_id, new_values)
+         VALUES (?, ?, ?, ?, 'delivery', ?, ?)`,
+        [business_id, req.user.id, req.user.user_type, actionName, delId, JSON.stringify({ status, order_number: orderNum })]
+      );
+
+      // Real-time socket broadcast
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`business_${business_id}`).emit('dashboard_activity_update', {
+          action: actionName,
+          orderNumber: orderNum,
+          status
+        });
       }
     }
 

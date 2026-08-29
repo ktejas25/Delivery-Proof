@@ -11,8 +11,6 @@ import RegisterPage from "./pages/RegisterPage";
 import Dashboard from "./pages/Dashboard";
 import DriverDashboard from "./pages/DriverDashboard";
 import CustomerDashboard from "./pages/CustomerDashboard";
-import CustomerLoginPage from "./pages/CustomerLoginPage";
-import CustomerRegisterPage from "./pages/CustomerRegisterPage";
 import { Toaster } from "react-hot-toast";
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
@@ -39,8 +37,11 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/customer/login" element={<CustomerLoginPage />} />
-          <Route path="/customer/register" element={<CustomerRegisterPage />} />
+          
+          {/* Automatic backwards-compatibility redirects to single login/register */}
+          <Route path="/customer/login" element={<Navigate to="/login" replace />} />
+          <Route path="/customer/register" element={<Navigate to="/register" replace />} />
+
           <Route
             path="/dashboard/*"
             element={

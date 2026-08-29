@@ -2,12 +2,14 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import api from "../services/api";
 
 interface User {
+  id?: number;
   uuid: string;
   email: string;
   first_name: string;
   last_name: string;
   user_type: string;
   business_name: string;
+  business_id?: number;
   name?: string;
 }
 

@@ -17,17 +17,36 @@ const initSocket = (server) => {
             console.log(`Socket ${socket.id} joined delivery ${deliveryUuid}`);
         });
 
-        socket.on('update_location', async (data) => {
-            // data: { deliveryUuid, lat, lng, driverId }
-            
-            // 1. Broadcast to listeners
-            io.to(`delivery_${data.deliveryUuid}`).emit('location_updated', {
-                lat: data.lat,
-                lng: data.lng,
-                timestamp: new Date()
-            });
+        socket.on('join_dashboard', (businessId) => {
+            if (businessId) {
+                socket.join(`business_${businessId}`);
+                console.log(`Socket ${socket.id} joined business dashboard ${businessId}`);
+            }
+        });
 
-            // 2. Persist to DB for initial loads/refreshes
+        socket.on('update_location', async (data) => {
+            // data: { deliveryUuid, lat, lng, driverId, businessId }
+            
+            // 1. Broadcast to delivery listeners
+            if (data.deliveryUuid) {
+                io.to(`delivery_${data.deliveryUuid}`).emit('location_updated', {
+                    lat: data.lat,
+                    lng: data.lng,
+                    timestamp: new Date()
+                });
+            }
+
+            // 2. Broadcast to business dashboard
+            if (data.businessId) {
+                io.to(`business_${data.businessId}`).emit('driver_location_updated', {
+                    driverId: data.driverId,
+                    lat: data.lat,
+                    lng: data.lng,
+                    timestamp: new Date()
+                });
+            }
+
+            // 3. Persist to DB for initial loads/refreshes
             if (data.driverId && data.lat && data.lng) {
                 try {
                     await pool.query(
