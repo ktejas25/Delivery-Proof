@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import api from "../services/api";
 import {
   MapPin,
@@ -10,245 +10,127 @@ import {
   Eye,
   Search,
   Plus,
+  Truck,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  X
 } from "lucide-react";
 import ProofModal from "../components/ProofModal";
 import NewDeliveryModal from "../components/NewDeliveryModal";
 import EditDeliveryModal from "../components/EditDeliveryModal";
 import AssignDriverModal from "../components/AssignDriverModal";
+import toast from "react-hot-toast";
 
-// --- Status mapping for display and colors ---
-const statusMap: Record<
+// Status definitions & badges
+const statusConfig: Record<
   string,
-  { color: string; background: string; label: string }
+  { label: string; bg: string; text: string; dot: string }
 > = {
-  scheduled: { color: "#8c8c8c", background: "#f5f5f5", label: "PENDING" },
-  dispatched: { color: "#1890ff", background: "#e6f7ff", label: "CONFIRMED" },
-  en_route: {
-    color: "#faad14",
-    background: "#fff7e6",
-    label: "OUT FOR DELIVERY",
+  scheduled: {
+    label: "Scheduled",
+    bg: "bg-slate-100",
+    text: "text-slate-700",
+    dot: "bg-slate-400",
   },
-  arrived: { color: "#722ed1", background: "#f9f0ff", label: "ARRIVED" },
-  delivered: { color: "#2BB673", background: "#E9F7EF", label: "DELIVERED" },
-  failed: { color: "#ff4d4f", background: "#fff1f0", label: "FAILED" },
-  disputed: { color: "#eb2f96", background: "#fff0f6", label: "DISPUTED" },
-  cancelled: { color: "#ff4d4f", background: "#fff1f0", label: "CANCELLED" },
+  pending: {
+    label: "Pending",
+    bg: "bg-slate-100",
+    text: "text-slate-700",
+    dot: "bg-slate-400",
+  },
+  dispatched: {
+    label: "Dispatched",
+    bg: "bg-blue-50",
+    text: "text-blue-700",
+    dot: "bg-blue-500",
+  },
+  en_route: {
+    label: "Out for Delivery",
+    bg: "bg-amber-50",
+    text: "text-amber-700",
+    dot: "bg-amber-500",
+  },
+  arrived: {
+    label: "Arrived",
+    bg: "bg-purple-50",
+    text: "text-purple-700",
+    dot: "bg-purple-500",
+  },
+  delivered: {
+    label: "Delivered",
+    bg: "bg-emerald-50",
+    text: "text-emerald-700",
+    dot: "bg-emerald-500",
+  },
+  failed: {
+    label: "Failed Attempt",
+    bg: "bg-red-50",
+    text: "text-red-600",
+    dot: "bg-red-500",
+  },
+  disputed: {
+    label: "Disputed Claim",
+    bg: "bg-pink-50",
+    text: "text-pink-700",
+    dot: "bg-pink-500",
+  },
+  cancelled: {
+    label: "Cancelled",
+    bg: "bg-slate-100",
+    text: "text-slate-500",
+    dot: "bg-slate-400",
+  },
 };
 
-// --- Helper: allowed status transitions ---
-const getAllowedTransitions = (currentStatus: string): string[] => {
-  const transitions: Record<string, string[]> = {
-    scheduled: ["dispatched", "cancelled"],
-    dispatched: ["en_route", "failed", "cancelled"],
-    en_route: ["arrived", "failed", "cancelled"],
-    arrived: ["delivered", "failed"],
-    delivered: ["disputed"],
-    failed: ["scheduled", "cancelled"],
-    disputed: [], // no direct changes – admin review required
-    cancelled: [], // terminal state
-  };
-  return transitions[currentStatus] || [];
+const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
+  scheduled: ["dispatched", "cancelled"],
+  pending: ["dispatched", "cancelled"],
+  dispatched: ["en_route", "failed", "cancelled"],
+  en_route: ["arrived", "failed", "cancelled"],
+  arrived: ["delivered", "failed", "cancelled"],
+  delivered: ["disputed"],
+  failed: ["scheduled", "cancelled"],
+  disputed: ["delivered", "cancelled"],
+  cancelled: [],
 };
 
-// --- Sub-components ---
-const DeliveryStatusBadge: React.FC<{ status: string }> = ({ status }) => {
-  const style = statusMap[status] || statusMap.scheduled;
-  return (
-    <span
-      style={{
-        padding: "4px 10px",
-        borderRadius: "20px",
-        fontSize: "11px",
-        fontWeight: 700,
-        letterSpacing: "0.02em",
-        display: "inline-block",
-        color: style.color,
-        background: style.background,
-      }}
-    >
-      {style.label}
-    </span>
-  );
-};
-
-interface ActionMenuProps {
-  isOpen: boolean;
-  onClose: () => void;
-  delivery: any;
-  onAction: (action: string, uuid: string) => void;
-  onStatusChange: (uuid: string, status: string) => void;
-}
-
-const ActionMenu: React.FC<ActionMenuProps> = ({
-  isOpen,
-  onClose,
-  delivery,
-  onAction,
-  onStatusChange,
-}) => {
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    };
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  const handleItemClick = (e: React.MouseEvent, action: string) => {
-    e.stopPropagation();
-    onAction(action, delivery.uuid);
-  };
-
-  const handleStatusClick = (e: React.MouseEvent, newStatus: string) => {
-    e.stopPropagation();
-    onStatusChange(delivery.uuid, newStatus);
-  };
-
-  const currentStatus = delivery.delivery_status;
-  const allowedNext = getAllowedTransitions(currentStatus);
-  const canEditAssign = ["scheduled", "pending"].includes(currentStatus);
-  const canCancel = !["delivered", "cancelled"].includes(currentStatus);
-
-  return (
-    <div
-      ref={menuRef}
-      onClick={(e) => e.stopPropagation()}
-      style={{
-        position: "absolute",
-        right: "16px",
-        top: "calc(100% - 8px)",
-        background: "white",
-        border: "1px solid var(--border-color)",
-        borderRadius: "12px",
-        boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
-        zIndex: 1000,
-        minWidth: "200px",
-        padding: "8px",
-        animation: "fadeInScale 0.15s ease-out",
-      }}
-    >
-      <button
-        className="dropdown-item"
-        onClick={(e) => handleItemClick(e, "view")}
-      >
-        <Eye size={14} style={{ marginRight: "10px" }} /> View Details
-      </button>
-
-      {canEditAssign && (
-        <>
-          <button
-            className="dropdown-item"
-            onClick={(e) => handleItemClick(e, "edit")}
-          >
-            <Edit size={14} style={{ marginRight: "10px" }} /> Edit
-          </button>
-        </>
-      )}
-
-      {allowedNext.length > 0 && (
-        <>
-          <div
-            style={{
-              borderTop: "1px solid var(--border-color)",
-              margin: "8px 0",
-            }}
-          />
-          <div style={{ padding: "4px 8px" }}>
-            <span
-              style={{
-                fontSize: "11px",
-                fontWeight: 600,
-                color: "var(--text-muted)",
-                textTransform: "uppercase",
-              }}
-            >
-              Change Status
-            </span>
-            <div
-              style={{
-                marginTop: "6px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "4px",
-              }}
-            >
-              {allowedNext.map((next) => (
-                <button
-                  key={next}
-                  className="dropdown-item-small"
-                  onClick={(e) => handleStatusClick(e, next)}
-                >
-                  →{" "}
-                  {statusMap[next]?.label ||
-                    next.replace("_", " ").toUpperCase()}
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      {canCancel && (
-        <>
-          <div
-            style={{
-              borderTop: "1px solid var(--border-color)",
-              margin: "8px 0",
-            }}
-          />
-          <button
-            className="dropdown-item"
-            onClick={(e) => handleItemClick(e, "cancel")}
-            style={{ color: "#ff4d4f" }}
-          >
-            <XCircle size={14} style={{ marginRight: "10px" }} /> Cancel
-            Delivery
-          </button>
-        </>
-      )}
-
-      {delivery.delivery_status === "delivered" && (
-        <button
-          className="dropdown-item"
-          onClick={(e) => handleItemClick(e, "proof")}
-        >
-          <FileCheck size={14} style={{ marginRight: "10px" }} /> View Proof
-        </button>
-      )}
-    </div>
-  );
-};
-
-// --- Main component (unchanged except for using the updated sub-components) ---
 const Deliveries: React.FC = () => {
   const [deliveries, setDeliveries] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDelivery, setSelectedDelivery] = useState<any | null>(null);
+  
+  // Modals
+  const [selectedDeliveryForProof, setSelectedDeliveryForProof] = useState<any | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [activeDeliveryUuid, setActiveDeliveryUuid] = useState<string | null>(
-    null,
-  );
+  const [viewDetailsDelivery, setViewDetailsDelivery] = useState<any | null>(null);
+  const [activeDeliveryUuid, setActiveDeliveryUuid] = useState<string | null>(null);
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
+
+  // Filters
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [driverFilter, setDriverFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("");
+
+  // Pagination (10 records per page)
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const fetchDeliveries = async () => {
     try {
-      const response = await api.get("/deliveries");
-      setDeliveries(response.data);
+      const [delRes, drvRes] = await Promise.all([
+        api.get("/deliveries"),
+        api.get("/auth/drivers").catch(() => ({ data: [] }))
+      ]);
+      setDeliveries(delRes.data);
+      setDrivers(drvRes.data);
     } catch (error) {
-      console.error("Fetch failed", error);
+      console.error("Fetch deliveries failed", error);
+      toast.error("Failed to load deliveries");
     } finally {
       setLoading(false);
     }
@@ -258,310 +140,598 @@ const Deliveries: React.FC = () => {
     fetchDeliveries();
   }, []);
 
-  const handleAction = async (action: string, deliveryUuid: string) => {
+  const handleStatusChange = async (deliveryUuid: string, newStatus: string) => {
+    setActionMenuOpen(null);
+    try {
+      await api.patch(`/deliveries/${deliveryUuid}/status`, { status: newStatus });
+      toast.success(`Order status updated to ${statusConfig[newStatus]?.label || newStatus}`);
+      fetchDeliveries();
+    } catch (error: any) {
+      console.error("Status update error", error);
+      toast.error(error.response?.data?.message || "Failed to update order status");
+    }
+  };
+
+  const handleCancelDelivery = async (delivery: any) => {
+    setActionMenuOpen(null);
+    if (["delivered", "cancelled"].includes(delivery.delivery_status)) {
+      toast.error(`Cannot cancel order #${delivery.order_number} as it is already ${delivery.delivery_status}.`);
+      return;
+    }
+    const confirmed = window.confirm(
+      `Are you sure you want to cancel Order #${delivery.order_number}? This action will halt dispatching.`
+    );
+    if (confirmed) {
+      try {
+        await api.patch(`/deliveries/${delivery.uuid}/status`, { status: "cancelled" });
+        toast.success(`Order #${delivery.order_number} has been cancelled.`);
+        fetchDeliveries();
+      } catch (error: any) {
+        toast.error(error.response?.data?.message || "Failed to cancel order");
+      }
+    }
+  };
+
+  const handleAction = (action: string, delivery: any) => {
     setActionMenuOpen(null);
     switch (action) {
       case "view":
-        alert(`View details for ${deliveryUuid}`);
+        setViewDetailsDelivery(delivery);
         break;
       case "edit":
-        setActiveDeliveryUuid(deliveryUuid);
+        if (["delivered", "cancelled"].includes(delivery.delivery_status)) {
+          toast.error(`Cannot edit order #${delivery.order_number} in ${delivery.delivery_status} state.`);
+          return;
+        }
+        setActiveDeliveryUuid(delivery.uuid);
         setShowEditModal(true);
         break;
       case "assign":
-        setActiveDeliveryUuid(deliveryUuid);
+        if (["delivered", "cancelled"].includes(delivery.delivery_status)) {
+          toast.error(`Cannot assign driver to order #${delivery.order_number} in ${delivery.delivery_status} state.`);
+          return;
+        }
+        setActiveDeliveryUuid(delivery.uuid);
         setShowAssignModal(true);
         break;
-      case "cancel":
-        if (window.confirm("Are you sure you want to cancel this delivery?")) {
-          try {
-            await api.patch(`/deliveries/${deliveryUuid}/status`, {
-              status: "cancelled",
-            });
-            fetchDeliveries();
-          } catch (error) {
-            console.error("Cancel failed", error);
-          }
-        }
-        break;
       case "proof":
-        setSelectedDelivery(
-          deliveries.find((d) => d.uuid === deliveryUuid) || null,
-        );
+        setSelectedDeliveryForProof(delivery);
+        break;
+      case "cancel":
+        handleCancelDelivery(delivery);
         break;
       default:
         break;
     }
   };
 
-  const handleStatusChange = async (
-    deliveryUuid: string,
-    newStatus: string,
-  ) => {
-    setActionMenuOpen(null);
-    try {
-      await api.patch(`/deliveries/${deliveryUuid}/status`, {
-        status: newStatus,
-      });
-      fetchDeliveries();
-    } catch (error) {
-      console.error("Status update failed", error);
-    }
+  const hasActiveFilters = search || statusFilter !== "all" || driverFilter !== "all" || priorityFilter !== "all" || dateFilter;
+
+  const resetFilters = () => {
+    setSearch("");
+    setStatusFilter("all");
+    setDriverFilter("all");
+    setPriorityFilter("all");
+    setDateFilter("");
+    setCurrentPage(1);
   };
 
-  const toggleMenu = (e: React.MouseEvent, uuid: string) => {
-    e.stopPropagation();
-    setActionMenuOpen(actionMenuOpen === uuid ? null : uuid);
-  };
+  // Filtered dataset
+  const filtered = deliveries.filter((d) => {
+    const matchesSearch =
+      !search ||
+      d.order_number?.toLowerCase().includes(search.toLowerCase()) ||
+      d.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
+      d.customer_address?.toLowerCase().includes(search.toLowerCase()) ||
+      d.driver_name?.toLowerCase().includes(search.toLowerCase());
 
-  const filteredDeliveries = deliveries.filter(
-    (d) =>
-      d.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.customer_address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.driver_name?.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+    const matchesStatus = statusFilter === "all" || d.delivery_status === statusFilter;
 
-  if (loading)
-    return <div style={{ padding: "24px" }}>Loading deliveries...</div>;
+    const matchesDriver =
+      driverFilter === "all" ||
+      (driverFilter === "unassigned" ? !d.driver_id : String(d.driver_id) === String(driverFilter));
+
+    const matchesPriority = priorityFilter === "all" || (d.priority_level || "medium") === priorityFilter;
+
+    const matchesDate =
+      !dateFilter ||
+      (d.scheduled_time && d.scheduled_time.startsWith(dateFilter));
+
+    return matchesSearch && matchesStatus && matchesDriver && matchesPriority && matchesDate;
+  });
+
+  // Pagination calculation
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginatedDeliveries = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const startRecord = filtered.length > 0 ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
+  const endRecord = Math.min(currentPage * PAGE_SIZE, filtered.length);
 
   return (
-    <div style={{ padding: "24px" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "24px",
-        }}
-      >
-        <h2 style={{ fontSize: "24px", fontWeight: 600 }}>Deliveries</h2>
-        <div style={{ display: "flex", gap: "12px" }}>
-          <div style={{ position: "relative" }}>
-            <span
-              style={{
-                position: "absolute",
-                left: "12px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--text-muted)",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <Search size={15} />
-            </span>
-            <input
-              type="text"
-              placeholder="Search orders..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                padding: "8px 12px 8px 36px",
-                borderRadius: "8px",
-                border: "1px solid var(--border-color)",
-                outline: "none",
-                width: "250px",
-              }}
-            />
+    <div className="bg-[#F8FAFC] min-h-full p-6 lg:p-8 space-y-6">
+      {/* 1. Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+              <Truck size={19} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                Deliveries & Orders Command Center
+              </h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Real-time dispatch management, status transitions, driver assignment & proofs
+              </p>
+            </div>
           </div>
+        </div>
+
+        <div className="flex items-center gap-3">
           <button
-            className="btn btn-primary"
             onClick={() => setShowNewModal(true)}
-            style={{ display: "flex", alignItems: "center", gap: "6px" }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
           >
-            <Plus size={16} />
-            <span>New Delivery</span>
+            <Plus size={16} /> New Delivery
           </button>
         </div>
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: "visible" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead
-            style={{
-              background: "var(--bg-secondary)",
-              borderBottom: "1px solid var(--border-color)",
-            }}
-          >
-            <tr>
-              <th className="th-cell">ORDER</th>
-              <th className="th-cell">CUSTOMER</th>
-              <th className="th-cell">ADDRESS</th>
-              <th className="th-cell">DRIVER</th>
-              <th className="th-cell">STATUS</th>
-              <th className="th-cell">SCHEDULED</th>
-              <th className="th-cell" style={{ textAlign: "right" }}>
-                ACTIONS
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredDeliveries.map((d) => (
-              <tr key={d.uuid} className="hover-row">
-                <td
-                  className="td-cell"
-                  style={{ fontWeight: 600, color: "var(--text-primary)" }}
-                >
-                  #{d.order_number}
-                </td>
-                <td className="td-cell">{d.customer_name}</td>
-                <td
-                  className="td-cell"
-                  style={{
-                    fontSize: "13px",
-                    maxWidth: "250px",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  <MapPin
-                    size={12}
-                    style={{
-                      verticalAlign: "middle",
-                      marginRight: "4px",
-                      color: "var(--text-muted)",
-                    }}
-                  />
-                  {d.customer_address}
-                </td>
-                <td className="td-cell" style={{ fontSize: "13px" }}>
-                  {d.driver_name ? (
-                    <span style={{ fontWeight: 500 }}>{d.driver_name}</span>
-                  ) : (
-                    <span
-                      style={{
-                        color: "var(--text-muted)",
-                        fontStyle: "italic",
-                      }}
-                    >
-                      Unassigned
-                    </span>
-                  )}
-                </td>
-                <td className="td-cell">
-                  <DeliveryStatusBadge status={d.delivery_status} />
-                </td>
-                <td
-                  className="td-cell"
-                  style={{ fontSize: "13px", color: "var(--text-muted)" }}
-                >
-                  <Clock
-                    size={12}
-                    style={{ verticalAlign: "middle", marginRight: "4px" }}
-                  />
-                  {new Date(d.scheduled_time).toDateString()}
-                </td>
-                <td
-                  className="td-cell"
-                  style={{ textAlign: "right", position: "relative" }}
-                >
-                  <button
-                    className="btn btn-icon"
-                    onClick={(e) => toggleMenu(e, d.uuid)}
-                    style={{
-                      background:
-                        actionMenuOpen === d.uuid
-                          ? "var(--bg-secondary)"
-                          : "transparent",
-                      borderRadius: "8px",
-                    }}
-                  >
-                    <MoreVertical size={18} />
-                  </button>
-                  <ActionMenu
-                    isOpen={actionMenuOpen === d.uuid}
-                    onClose={() => setActionMenuOpen(null)}
-                    delivery={d}
-                    onAction={handleAction}
-                    onStatusChange={handleStatusChange}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* 2. Comprehensive Filter Toolbar */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
+          {/* Text Search (4 cols) */}
+          <div className="lg:col-span-4 relative">
+            <Search
+              size={14}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+            />
+            <input
+              type="text"
+              placeholder="Search Order #, customer, driver, address..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:border-blue-500 outline-none transition-all"
+            />
+          </div>
+
+          {/* Status Filter (2 cols) */}
+          <div className="lg:col-span-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-blue-500 outline-none cursor-pointer"
+            >
+              <option value="all">All Statuses</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="dispatched">Dispatched</option>
+              <option value="en_route">Out for Delivery</option>
+              <option value="arrived">Arrived</option>
+              <option value="delivered">Delivered</option>
+              <option value="failed">Failed Attempt</option>
+              <option value="disputed">Disputed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          {/* Driver Filter (2 cols) */}
+          <div className="lg:col-span-2">
+            <select
+              value={driverFilter}
+              onChange={(e) => {
+                setDriverFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-blue-500 outline-none cursor-pointer"
+            >
+              <option value="all">All Drivers</option>
+              <option value="unassigned">Unassigned Only</option>
+              {drivers.map((d) => (
+                <option key={d.driver_id} value={d.driver_id}>
+                  {d.first_name} {d.last_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Priority Filter (2 cols) */}
+          <div className="lg:col-span-2">
+            <select
+              value={priorityFilter}
+              onChange={(e) => {
+                setPriorityFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-blue-500 outline-none cursor-pointer"
+            >
+              <option value="all">All Priorities</option>
+              <option value="high">High / Express</option>
+              <option value="medium">Medium Priority</option>
+              <option value="low">Low Priority</option>
+            </select>
+          </div>
+
+          {/* Date Picker & Reset (2 cols) */}
+          <div className="lg:col-span-2 flex items-center gap-2">
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => {
+                setDateFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:bg-white outline-none"
+            />
+            {hasActiveFilters && (
+              <button
+                onClick={resetFilters}
+                className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0 cursor-pointer"
+                title="Reset All Filters"
+              >
+                <RotateCcw size={14} />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
-      <style>{`
-        .th-cell {
-          padding: 16px;
-          text-align: left;
-          font-size: 11px;
-          font-weight: 700;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-        .td-cell {
-          padding: 16px;
-          border-bottom: 1px solid var(--border-color);
-        }
-        .hover-row:hover {
-          background-color: var(--bg-main);
-        }
-        .dropdown-item {
-          display: flex;
-          align-items: center;
-          width: 100%;
-          padding: 10px 12px;
-          border: none;
-          background: none;
-          cursor: pointer;
-          font-size: 13px;
-          font-weight: 500;
-          color: var(--text-body);
-          border-radius: 8px;
-          transition: all 0.15s ease;
-          text-align: left;
-        }
-        .dropdown-item:hover {
-          background: var(--bg-secondary);
-          color: var(--text-primary);
-        }
-        .dropdown-item-small {
-          display: block;
-          width: 100%;
-          padding: 4px 8px;
-          border: none;
-          background: none;
-          cursor: pointer;
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--text-muted);
-          border-radius: 4px;
-          transition: all 0.1s ease;
-          text-align: left;
-        }
-        .dropdown-item-small:hover {
-          background: var(--bg-highlight);
-          color: var(--primary-mint);
-        }
-        @keyframes fadeInScale {
-          from { opacity: 0; transform: scale(0.95) translateY(-10px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-      `}</style>
+      {/* 3. Deliveries Table */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="overflow-x-auto min-h-[400px]">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <th className="py-3.5 px-4">Order ID</th>
+                <th className="py-3.5 px-4">Customer & Destination</th>
+                <th className="py-3.5 px-4">Assigned Driver</th>
+                <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4">Priority</th>
+                <th className="py-3.5 px-4">Scheduled Time</th>
+                <th className="py-3.5 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
 
-      {/* Modals (unchanged) */}
-      {selectedDelivery && (
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="py-16 text-center text-slate-400">
+                    Loading delivery operations...
+                  </td>
+                </tr>
+              ) : paginatedDeliveries.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-16 text-center text-slate-400">
+                    No delivery orders found matching the filter criteria.
+                  </td>
+                </tr>
+              ) : (
+                paginatedDeliveries.map((delivery) => {
+                  const statusInfo = statusConfig[delivery.delivery_status] || statusConfig.scheduled;
+                  const allowedNext = ALLOWED_STATUS_TRANSITIONS[delivery.delivery_status] || [];
+                  const canEdit = !["delivered", "cancelled"].includes(delivery.delivery_status);
+                  const canCancel = !["delivered", "cancelled"].includes(delivery.delivery_status);
+                  const isMenuOpen = actionMenuOpen === delivery.uuid;
+
+                  return (
+                    <tr
+                      key={delivery.uuid}
+                      className="hover:bg-slate-50/70 transition-colors"
+                    >
+                      {/* Order Number */}
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                        #{delivery.order_number || delivery.uuid?.slice(0, 8)}
+                      </td>
+
+                      {/* Customer & Address */}
+                      <td className="py-3.5 px-4 max-w-[240px]">
+                        <p className="font-bold text-slate-900 truncate">
+                          {delivery.customer_name || "Guest Customer"}
+                        </p>
+                        <p className="text-[11px] text-slate-500 truncate flex items-center gap-1 mt-0.5">
+                          <MapPin size={11} className="text-slate-400 shrink-0" />
+                          <span>{delivery.customer_address || "No address specified"}</span>
+                        </p>
+                      </td>
+
+                      {/* Driver */}
+                      <td className="py-3.5 px-4">
+                        {delivery.driver_name ? (
+                          <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                            <div className="w-5 h-5 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold">
+                              {delivery.driver_name[0]}
+                            </div>
+                            <span>{delivery.driver_name}</span>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-100">
+                            Unassigned
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Status Badge */}
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${statusInfo.bg} ${statusInfo.text}`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dot}`} />
+                          {statusInfo.label}
+                        </span>
+                      </td>
+
+                      {/* Priority */}
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                            delivery.priority_level === "high"
+                              ? "bg-red-50 text-red-600 border border-red-100"
+                              : delivery.priority_level === "low"
+                              ? "bg-slate-100 text-slate-600"
+                              : "bg-blue-50 text-blue-700 border border-blue-100"
+                          }`}
+                        >
+                          {delivery.priority_level || "Medium"}
+                        </span>
+                      </td>
+
+                      {/* Scheduled Time */}
+                      <td className="py-3.5 px-4 text-slate-500 font-medium">
+                        <div className="flex items-center gap-1 text-[11px]">
+                          <Clock size={12} className="text-slate-400 shrink-0" />
+                          <span>
+                            {delivery.scheduled_time
+                              ? new Date(delivery.scheduled_time).toLocaleString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : "Not scheduled"}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Actions Menu */}
+                      <td className="py-3.5 px-4 text-right relative">
+                        <div className="relative inline-block text-left">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActionMenuOpen(isMenuOpen ? null : delivery.uuid);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <MoreVertical size={16} />
+                          </button>
+
+                          {/* Dropdown Flyout */}
+                          {isMenuOpen && (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl border border-slate-200 shadow-xl p-1.5 z-40 text-xs animate-in fade-in slide-in-from-top-1"
+                            >
+                              <button
+                                onClick={() => handleAction("view", delivery)}
+                                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-700 hover:bg-slate-50 font-medium cursor-pointer"
+                              >
+                                <Eye size={13} className="text-slate-400" /> View Details
+                              </button>
+
+                              {canEdit && (
+                                <>
+                                  <button
+                                    onClick={() => handleAction("edit", delivery)}
+                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-700 hover:bg-slate-50 font-medium cursor-pointer"
+                                  >
+                                    <Edit size={13} className="text-slate-400" /> Edit Order
+                                  </button>
+                                  <button
+                                    onClick={() => handleAction("assign", delivery)}
+                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-700 hover:bg-slate-50 font-medium cursor-pointer"
+                                  >
+                                    <Truck size={13} className="text-slate-400" /> Assign Driver
+                                  </button>
+                                </>
+                              )}
+
+                              {delivery.delivery_status === "delivered" && (
+                                <button
+                                  onClick={() => handleAction("proof", delivery)}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 font-medium cursor-pointer"
+                                >
+                                  <FileCheck size={13} className="text-emerald-500" /> View Proof
+                                </button>
+                              )}
+
+                              {allowedNext.length > 0 && (
+                                <div className="border-t border-slate-100 my-1 pt-1">
+                                  <span className="px-2 py-0.5 text-[9px] font-black uppercase text-slate-400 tracking-wider block">
+                                    Change Status
+                                  </span>
+                                  {allowedNext.map((st) => (
+                                    <button
+                                      key={st}
+                                      onClick={() => handleStatusChange(delivery.uuid, st)}
+                                      className="w-full text-left px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-600 hover:bg-blue-50 hover:text-blue-700 cursor-pointer"
+                                    >
+                                      → {statusConfig[st]?.label || st}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+
+                              {canCancel && (
+                                <div className="border-t border-slate-100 my-1 pt-1">
+                                  <button
+                                    onClick={() => handleAction("cancel", delivery)}
+                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-red-600 hover:bg-red-50 font-medium cursor-pointer"
+                                  >
+                                    <XCircle size={13} /> Cancel Order
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* 4. Pagination Footer */}
+        <div className="px-5 py-3.5 bg-slate-50/50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="text-slate-500 font-medium">
+            {filtered.length > 0 ? (
+              <span>
+                Showing <strong className="text-slate-800 font-bold">{startRecord}</strong>–<strong className="text-slate-800 font-bold">{endRecord}</strong> of <strong className="text-slate-800 font-bold">{filtered.length}</strong> orders
+              </span>
+            ) : (
+              <span>No orders</span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1 || loading}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 font-semibold text-xs transition-colors cursor-pointer"
+            >
+              <ChevronLeft size={14} /> Previous
+            </button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .map((p, idx, arr) => {
+                  const prevP = arr[idx - 1];
+                  const showEllipsis = prevP && p - prevP > 1;
+                  return (
+                    <React.Fragment key={p}>
+                      {showEllipsis && <span className="px-1 text-slate-400">...</span>}
+                      <button
+                        onClick={() => setCurrentPage(p)}
+                        className={`w-7 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          currentPage === p
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    </React.Fragment>
+                  );
+                })}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages || loading}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 font-semibold text-xs transition-colors cursor-pointer"
+            >
+              Next <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* View Details Modal */}
+      {viewDetailsDelivery && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="w-full max-w-lg bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 relative">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Order #{viewDetailsDelivery.order_number}
+                </h3>
+                <p className="text-xs text-slate-400">UUID: {viewDetailsDelivery.uuid}</p>
+              </div>
+              <button
+                onClick={() => setViewDetailsDelivery(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  Customer & Drop-off
+                </span>
+                <p className="font-bold text-slate-800 text-sm">{viewDetailsDelivery.customer_name}</p>
+                <p className="text-slate-600 mt-0.5">{viewDetailsDelivery.customer_address}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    Assigned Driver
+                  </span>
+                  <p className="font-bold text-slate-800">{viewDetailsDelivery.driver_name || "Unassigned"}</p>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    Current Status
+                  </span>
+                  <p className="font-bold text-slate-800 uppercase">{viewDetailsDelivery.delivery_status}</p>
+                </div>
+              </div>
+
+              {viewDetailsDelivery.delivery_notes && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    Delivery Instructions
+                  </span>
+                  <p className="text-slate-700 italic">"{viewDetailsDelivery.delivery_notes}"</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 pt-3 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setViewDetailsDelivery(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Proof Modal */}
+      {selectedDeliveryForProof && (
         <ProofModal
-          delivery={selectedDelivery}
-          isOpen={!!selectedDelivery}
+          delivery={selectedDeliveryForProof}
+          isOpen={!!selectedDeliveryForProof}
           mode="view"
-          onClose={() => setSelectedDelivery(null)}
+          onClose={() => setSelectedDeliveryForProof(null)}
         />
       )}
+
+      {/* New Delivery Modal */}
       {showNewModal && (
         <NewDeliveryModal
           onClose={() => setShowNewModal(false)}
           onSuccess={() => {
             setShowNewModal(false);
             fetchDeliveries();
+            toast.success("Delivery scheduled successfully");
           }}
         />
       )}
+
+      {/* Edit Delivery Modal */}
       {showEditModal && activeDeliveryUuid && (
         <EditDeliveryModal
           deliveryUuid={activeDeliveryUuid}
@@ -573,9 +743,12 @@ const Deliveries: React.FC = () => {
             setShowEditModal(false);
             setActiveDeliveryUuid(null);
             fetchDeliveries();
+            toast.success("Delivery updated");
           }}
         />
       )}
+
+      {/* Assign Driver Modal */}
       {showAssignModal && activeDeliveryUuid && (
         <AssignDriverModal
           deliveryUuid={activeDeliveryUuid}
@@ -587,6 +760,7 @@ const Deliveries: React.FC = () => {
             setShowAssignModal(false);
             setActiveDeliveryUuid(null);
             fetchDeliveries();
+            toast.success("Driver assigned");
           }}
         />
       )}

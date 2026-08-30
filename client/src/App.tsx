@@ -11,6 +11,7 @@ import RegisterPage from "./pages/RegisterPage";
 import Dashboard from "./pages/Dashboard";
 import DriverDashboard from "./pages/DriverDashboard";
 import CustomerDashboard from "./pages/CustomerDashboard";
+import ForceChangePasswordModal from "./components/ForceChangePasswordModal";
 import { Toaster } from "react-hot-toast";
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
@@ -19,7 +20,12 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   const { token, loading } = useAuth();
   if (loading) return <div>Loading...</div>;
   if (!token) return <Navigate to="/login" />;
-  return <>{children}</>;
+  return (
+    <>
+      <ForceChangePasswordModal />
+      {children}
+    </>
+  );
 };
 
 const RoleBasedRedirect: React.FC = () => {
@@ -37,10 +43,16 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          
+
           {/* Automatic backwards-compatibility redirects to single login/register */}
-          <Route path="/customer/login" element={<Navigate to="/login" replace />} />
-          <Route path="/customer/register" element={<Navigate to="/register" replace />} />
+          <Route
+            path="/customer/login"
+            element={<Navigate to="/login" replace />}
+          />
+          <Route
+            path="/customer/register"
+            element={<Navigate to="/register" replace />}
+          />
 
           <Route
             path="/dashboard/*"

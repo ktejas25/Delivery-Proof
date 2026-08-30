@@ -68,8 +68,8 @@ const createCustomer = async (req, res) => {
       const userUuid = uuidv4();
       const hashedPassword = await hashPassword(password);
       const [userResult] = await connection.query(
-        `INSERT INTO users (uuid, business_id, email, phone, password_hash, first_name, last_name, user_type) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, 'customer')`,
+        `INSERT INTO users (uuid, business_id, email, phone, password_hash, first_name, last_name, user_type, must_change_password) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, 'customer', 1)`,
         [
           userUuid,
           business_id,
@@ -157,15 +157,15 @@ const updateCustomer = async (req, res) => {
       if (userId) {
         // Update existing user password
         await connection.query(
-          "UPDATE users SET password_hash = ?, email = COALESCE(?, email) WHERE id = ?",
+          "UPDATE users SET password_hash = ?, email = COALESCE(?, email), must_change_password = 1 WHERE id = ?",
           [hashedPassword, email, userId],
         );
       } else {
         // Create new user for this customer
         const userUuid = uuidv4();
         const [userResult] = await connection.query(
-          `INSERT INTO users (uuid, business_id, email, phone, password_hash, first_name, last_name, user_type) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, 'customer')`,
+          `INSERT INTO users (uuid, business_id, email, phone, password_hash, first_name, last_name, user_type, must_change_password) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'customer', 1)`,
           [
             userUuid,
             business_id,

@@ -6,6 +6,7 @@ const {
   logout,
   getDrivers,
   createDriver,
+  changePassword,
 } = require("../controllers/authController");
 const {
   authenticateToken,
@@ -17,6 +18,7 @@ router.post("/register", register);
 router.post("/login", login);
 router.post("/google", googleAuth);
 router.post("/logout", authenticateToken, logout);
+router.post("/change-password", authenticateToken, changePassword);
 router.get(
   "/drivers",
   authenticateToken,

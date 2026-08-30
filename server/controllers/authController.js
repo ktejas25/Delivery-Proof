@@ -121,6 +121,7 @@ const login = async (req, res) => {
         name: `${user.first_name} ${user.last_name}`.trim(),
         user_type: user.user_type,
         business_name: user.business_name,
+        must_change_password: !!user.must_change_password,
       },
     });
   } catch (error) {
@@ -223,7 +224,7 @@ const createDriver = async (req, res) => {
     const userUuid = uuidv4();
     const hashedPassword = await hashPassword(password);
     const [userResult] = await connection.query(
-      "INSERT INTO users (uuid, business_id, email, password_hash, first_name, last_name, user_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO users (uuid, business_id, email, password_hash, first_name, last_name, user_type, must_change_password) VALUES (?, ?, ?, ?, ?, ?, ?, 1)",
       [
         userUuid,
         business_id,
@@ -307,8 +308,8 @@ const googleAuth = async (req, res) => {
       const hashedPassword = await hashPassword(dummyPassword);
 
       const [userResult] = await connection.query(
-        `INSERT INTO users (uuid, business_id, email, password_hash, first_name, last_name, user_type, is_active, last_login) 
-         VALUES (?, ?, ?, ?, ?, ?, 'admin', 1, NOW())`,
+        `INSERT INTO users (uuid, business_id, email, password_hash, first_name, last_name, user_type, is_active, must_change_password, last_login) 
+         VALUES (?, ?, ?, ?, ?, ?, 'admin', 1, 0, NOW())`,
         [userUuid, businessId, email, hashedPassword, userFirstName, userLastName]
       );
 
@@ -323,7 +324,8 @@ const googleAuth = async (req, res) => {
         email: email,
         first_name: userFirstName,
         last_name: userLastName,
-        user_type: 'admin'
+        user_type: 'admin',
+        must_change_password: 0
       };
     }
 
@@ -354,7 +356,8 @@ const googleAuth = async (req, res) => {
         last_name: authenticatedUser.last_name,
         user_type: authenticatedUser.user_type,
         business_name: authenticatedUser.business_name,
-        business_uuid: businessUuid
+        business_uuid: businessUuid,
+        must_change_password: !!authenticatedUser.must_change_password
       },
       message: "Google authentication successful"
     });
@@ -367,6 +370,65 @@ const googleAuth = async (req, res) => {
   }
 };
 
+const changePassword = async (req, res) => {
+  const { current_password, new_password, confirm_password } = req.body;
+  const userId = req.user.id;
+
+  if (!new_password || new_password.length < 8) {
+    return res.status(400).json({ message: "New password must be at least 8 characters long" });
+  }
+
+  if (confirm_password && new_password !== confirm_password) {
+    return res.status(400).json({ message: "New password and confirmation password do not match" });
+  }
+
+  try {
+    const [users] = await pool.query("SELECT * FROM users WHERE id = ?", [userId]);
+    if (users.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const user = users[0];
+
+    // If current_password is provided, verify it (unless user was forced to change password)
+    if (current_password) {
+      const isCurrentMatch = await comparePassword(current_password, user.password_hash);
+      if (!isCurrentMatch) {
+        return res.status(400).json({ message: "Current password is incorrect" });
+      }
+    }
+
+    // Check that new password is not identical to existing password
+    const isSamePassword = await comparePassword(new_password, user.password_hash);
+    if (isSamePassword) {
+      return res.status(400).json({ message: "New password cannot be identical to your current/initial password" });
+    }
+
+    const hashedPassword = await hashPassword(new_password);
+    await pool.query(
+      "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?",
+      [hashedPassword, userId]
+    );
+
+    res.json({
+      message: "Password changed successfully",
+      must_change_password: false,
+      user: {
+        uuid: user.uuid,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        name: `${user.first_name} ${user.last_name}`.trim(),
+        user_type: user.user_type,
+        must_change_password: false
+      }
+    });
+  } catch (error) {
+    console.error("Change password error:", error);
+    res.status(500).json({ message: "Failed to change password", error: error.message });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -374,4 +436,5 @@ module.exports = {
   logout,
   getDrivers,
   createDriver,
+  changePassword,
 };

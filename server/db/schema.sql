@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS users (
     last_name VARCHAR(100),
         user_type ENUM('driver', 'manager', 'admin', 'analyst', 'support', 'customer') NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
+    must_change_password BOOLEAN DEFAULT FALSE,
     language_preference VARCHAR(10) DEFAULT 'en',
     last_login TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

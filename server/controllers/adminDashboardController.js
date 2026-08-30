@@ -72,10 +72,10 @@ const getAiInsightsHandler = async (req, res) => {
 
 const getRecentActivityHandler = async (req, res) => {
   const { business_id } = req.user;
-  const { limit = 10 } = req.query;
+  const { limit = 10, page = 1, filter = 'all' } = req.query;
   try {
-    const activities = await getRecentActivity(business_id, limit);
-    res.json(activities);
+    const result = await getRecentActivity(business_id, { page, limit, filter });
+    res.json(result);
   } catch (error) {
     console.error('getRecentActivityHandler error:', error);
     res.status(500).json({ status: 'error', message: error.message });

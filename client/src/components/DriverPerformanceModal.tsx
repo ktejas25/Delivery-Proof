@@ -287,19 +287,19 @@ const DriverPerformanceModal: React.FC<DriverPerformanceModalProps> = ({
               },
               {
                 label: "Average Rating",
-                value: data?.summary?.avgRating?.toFixed(1) ?? "0.0",
+                value: data?.summary?.avgRating != null ? Number(data.summary.avgRating).toFixed(1) : "0.0",
                 icon: <Star size={20} />,
                 color: "#F59E0B",
               },
               {
                 label: "On-Time Rate",
-                value: `${data?.summary?.onTimeRate?.toFixed(1) ?? "0.0"}%`,
+                value: `${data?.summary?.onTimeRate != null ? Number(data.summary.onTimeRate).toFixed(1) : "0.0"}%`,
                 icon: <Clock size={20} />,
                 color: "#10B981",
               },
               {
                 label: "Proof Score",
-                value: data?.summary?.avgProofScore?.toFixed(1) ?? "0.0",
+                value: data?.summary?.avgProofScore != null ? Number(data.summary.avgProofScore).toFixed(1) : "0.0",
                 icon: <ShieldCheck size={20} />,
                 color: "#8B5CF6",
               },
@@ -311,7 +311,7 @@ const DriverPerformanceModal: React.FC<DriverPerformanceModalProps> = ({
               },
               {
                 label: "Total Distance",
-                value: `${data?.summary?.totalDistanceKm?.toFixed(1) ?? "0.0"} km`,
+                value: `${data?.summary?.totalDistanceKm != null ? Number(data.summary.totalDistanceKm).toFixed(1) : "0.0"} km`,
                 icon: <Navigation size={20} />,
                 color: "#6366F1",
               },

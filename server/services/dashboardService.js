@@ -460,8 +460,29 @@ const getTopDrivers = async (businessId, limit = 5) => {
   }
 };
 
-const getRecentActivity = async (businessId, limit = 10) => {
+const getRecentActivity = async (businessId, options = 10) => {
   try {
+    const page = typeof options === 'object' ? Math.max(1, parseInt(options.page) || 1) : 1;
+    const limit = typeof options === 'object' ? Math.max(1, parseInt(options.limit) || 10) : (parseInt(options) || 10);
+    const filter = typeof options === 'object' ? options.filter || 'all' : 'all';
+    const offset = (page - 1) * limit;
+
+    let filterSql = '';
+    if (filter === 'delivered') {
+      filterSql = ` AND (al.action LIKE '%COMPLETED%' OR al.action LIKE '%DELIVERED%')`;
+    } else if (filter === 'failed') {
+      filterSql = ` AND al.action LIKE '%FAILED%'`;
+    } else if (filter === 'dispute') {
+      filterSql = ` AND al.action LIKE '%DISPUTE%'`;
+    }
+
+    const [countResult] = await pool.query(
+      `SELECT COUNT(*) as total FROM audit_logs al WHERE al.business_id = ? ${filterSql}`,
+      [businessId]
+    );
+    const totalRecords = countResult[0]?.total || 0;
+    const totalPages = Math.max(1, Math.ceil(totalRecords / limit));
+
     const [rows] = await pool.query(
       `SELECT 
         al.id,
@@ -481,14 +502,14 @@ const getRecentActivity = async (businessId, limit = 10) => {
        LEFT JOIN deliveries d ON (al.entity_type = 'delivery' AND al.entity_id = d.id) 
                                OR (al.entity_type = 'dispute' AND d.id = (SELECT delivery_id FROM disputes WHERE id = al.entity_id LIMIT 1))
        LEFT JOIN customers c ON d.customer_id = c.id
-       WHERE al.business_id = ?
+       WHERE al.business_id = ? ${filterSql}
        ORDER BY al.created_at DESC
-       LIMIT ?`,
-      [businessId, Number(limit)]
+       LIMIT ? OFFSET ?`,
+      [businessId, Number(limit), Number(offset)]
     );
 
     // Format human-friendly descriptions
-    return rows.map(item => {
+    const activities = rows.map(item => {
       let parsed = {};
       try {
         parsed = typeof item.new_values === 'string' ? JSON.parse(item.new_values) : (item.new_values || {});
@@ -509,6 +530,11 @@ const getRecentActivity = async (businessId, limit = 10) => {
           description = parsed.reason ? `Failed: ${parsed.reason}` : `Delivery failed for Order #${item.order_number || item.entity_id}`;
           status = 'error';
           break;
+        case 'DELIVERY_CANCELLED':
+          title = 'Delivery Cancelled';
+          description = `Order #${item.order_number || parsed.order_number || item.entity_id} was cancelled`;
+          status = 'error';
+          break;
         case 'DISPUTE_FILED':
           title = 'Dispute Reported';
           description = `Dispute filed by customer on Order #${item.order_number || item.entity_id}`;
@@ -522,6 +548,11 @@ const getRecentActivity = async (businessId, limit = 10) => {
         case 'DRIVER_ASSIGNED':
           title = 'Driver Dispatched';
           description = `Driver assigned to Order #${item.order_number || item.entity_id}`;
+          status = 'info';
+          break;
+        case 'DELIVERY_CREATED':
+          title = 'Order Scheduled';
+          description = `New delivery scheduled for Order #${item.order_number || parsed.order_number || item.entity_id}`;
           status = 'info';
           break;
         default:
@@ -543,6 +574,19 @@ const getRecentActivity = async (businessId, limit = 10) => {
         timestamp: item.created_at
       };
     });
+
+    return {
+      activities,
+      pagination: {
+        page,
+        currentPage: page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    };
   } catch (error) {
     console.error('getRecentActivity error:', error);
     throw error;

@@ -441,22 +441,6 @@ const Dashboard: React.FC = () => {
                   </div>
 
                   <button
-                    onClick={() => { setActiveTab("Dashboard"); setProfileDropdownOpen(false); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-slate-50 font-medium cursor-pointer"
-                  >
-                    <LayoutDashboard size={15} className="text-slate-400" /> Admin Overview
-                  </button>
-
-                  <button
-                    onClick={() => { setActiveTab("FleetOps"); setProfileDropdownOpen(false); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-slate-50 font-medium cursor-pointer"
-                  >
-                    <Navigation size={15} className="text-slate-400" /> Fleet Operations
-                  </button>
-
-                  <div className="my-1 border-t border-slate-100"></div>
-
-                  <button
                     onClick={logout}
                     className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 font-medium cursor-pointer"
                   >

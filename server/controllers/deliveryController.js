@@ -120,60 +120,117 @@ const createDelivery = async (req, res) => {
   }
 };
 
+const ALLOWED_STATUS_TRANSITIONS = {
+  scheduled: ["dispatched", "cancelled"],
+  pending: ["dispatched", "cancelled"],
+  dispatched: ["en_route", "failed", "cancelled"],
+  en_route: ["arrived", "failed", "cancelled"],
+  arrived: ["delivered", "failed", "cancelled"],
+  delivered: ["disputed"],
+  failed: ["scheduled", "cancelled"],
+  disputed: ["delivered", "cancelled"],
+  cancelled: [],
+};
+
 const updateDeliveryStatus = async (req, res) => {
   const { uuid } = req.params;
   const { status } = req.body;
-  const { business_id } = req.user;
+  const { business_id, user_type } = req.user;
+
+  if (!status) {
+    return res.status(400).json({ message: "Status is required" });
+  }
 
   try {
-    const [result] = await pool.query(
+    // 1. Fetch current delivery state
+    const [deliveries] = await pool.query(
+      "SELECT id, order_number, driver_id, delivery_status FROM deliveries WHERE uuid = ? AND business_id = ?",
+      [uuid, business_id],
+    );
+
+    if (deliveries.length === 0) {
+      return res.status(404).json({ message: "Delivery not found" });
+    }
+
+    const currentDelivery = deliveries[0];
+    const currentStatus = currentDelivery.delivery_status;
+
+    // 2. Validate state transition
+    if (currentStatus === status) {
+      return res.json({ message: "Status unchanged", status });
+    }
+
+    if (currentStatus === "cancelled") {
+      return res.status(400).json({ message: "Cannot modify a cancelled delivery" });
+    }
+
+    const allowed = ALLOWED_STATUS_TRANSITIONS[currentStatus] || [];
+    const isAdmin = user_type === "admin" || user_type === "manager";
+
+    if (!allowed.includes(status) && !isAdmin) {
+      return res.status(400).json({
+        message: `Invalid status transition from '${currentStatus}' to '${status}'. Allowed next statuses: ${allowed.join(", ") || "none"}`,
+      });
+    }
+
+    // 3. Update status in database
+    await pool.query(
       "UPDATE deliveries SET delivery_status = ? WHERE uuid = ? AND business_id = ?",
       [status, uuid, business_id],
     );
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Delivery not found" });
+    const delId = currentDelivery.id;
+    const orderNum = currentDelivery.order_number;
+
+    // If status is changed to en_route, mark driver as on_delivery
+    if (status === "en_route" && currentDelivery.driver_id) {
+      await pool.query(
+        "UPDATE drivers SET current_status = 'on_delivery' WHERE id = ?",
+        [currentDelivery.driver_id],
+      );
+    } else if (status === "delivered" && currentDelivery.driver_id) {
+      await pool.query(
+        "UPDATE drivers SET current_status = 'available' WHERE id = ?",
+        [currentDelivery.driver_id],
+      );
     }
 
-    // Get delivery details for audit & socket
-    const [delivery] = await pool.query(
-      "SELECT id, order_number, driver_id FROM deliveries WHERE uuid = ?",
-      [uuid],
+    // Audit log
+    const actionName =
+      status === "delivered"
+        ? "DELIVERY_COMPLETED"
+        : status === "failed"
+        ? "DELIVERY_FAILED"
+        : status === "cancelled"
+        ? "DELIVERY_CANCELLED"
+        : "STATUS_UPDATED";
+
+    await pool.query(
+      `INSERT INTO audit_logs (business_id, user_id, user_type, action, entity_type, entity_id, new_values)
+       VALUES (?, ?, ?, ?, 'delivery', ?, ?)`,
+      [
+        business_id,
+        req.user.id,
+        req.user.user_type,
+        actionName,
+        delId,
+        JSON.stringify({ from: currentStatus, to: status, order_number: orderNum }),
+      ],
     );
 
-    if (delivery.length > 0) {
-      const delId = delivery[0].id;
-      const orderNum = delivery[0].order_number;
-
-      // If status is changed to en_route, mark driver as on_delivery
-      if (status === "en_route" && delivery[0].driver_id) {
-        await pool.query(
-          "UPDATE drivers SET current_status = 'on_delivery' WHERE id = ?",
-          [delivery[0].driver_id],
-        );
-      }
-
-      // Audit log
-      const actionName = status === 'delivered' ? 'DELIVERY_COMPLETED' : (status === 'failed' ? 'DELIVERY_FAILED' : 'STATUS_UPDATED');
-      await pool.query(
-        `INSERT INTO audit_logs (business_id, user_id, user_type, action, entity_type, entity_id, new_values)
-         VALUES (?, ?, ?, ?, 'delivery', ?, ?)`,
-        [business_id, req.user.id, req.user.user_type, actionName, delId, JSON.stringify({ status, order_number: orderNum })]
-      );
-
-      // Real-time socket broadcast
-      const io = req.app.get('io');
-      if (io) {
-        io.to(`business_${business_id}`).emit('dashboard_activity_update', {
-          action: actionName,
-          orderNumber: orderNum,
-          status
-        });
-      }
+    // Real-time socket broadcast
+    const io = req.app.get("io");
+    if (io) {
+      io.to(`business_${business_id}`).emit("dashboard_activity_update", {
+        action: actionName,
+        orderNumber: orderNum,
+        status,
+      });
     }
 
-    res.json({ message: "Status updated" });
+    res.json({ message: "Status updated", status });
   } catch (error) {
+    console.error("Status update error:", error);
     res.status(500).json({ message: "Update failed", error: error.message });
   }
 };
@@ -209,19 +266,34 @@ const updateDelivery = async (req, res) => {
   } = req.body;
 
   try {
+    const [existing] = await pool.query(
+      "SELECT delivery_status FROM deliveries WHERE uuid = ? AND business_id = ?",
+      [uuid, business_id],
+    );
+
+    if (existing.length === 0) {
+      return res.status(404).json({ message: "Delivery not found" });
+    }
+
+    if (["delivered", "cancelled"].includes(existing[0].delivery_status)) {
+      return res.status(400).json({
+        message: `Cannot edit an order that is already ${existing[0].delivery_status}`,
+      });
+    }
+
     await pool.query(
       `UPDATE deliveries SET 
-                customer_id = ?, 
-                scheduled_time = ?, 
-                priority_level = ?, 
-                delivery_notes = ?, 
+                customer_id = COALESCE(?, customer_id), 
+                scheduled_time = COALESCE(?, scheduled_time), 
+                priority_level = COALESCE(?, priority_level), 
+                delivery_notes = COALESCE(?, delivery_notes), 
                 driver_id = ? 
              WHERE uuid = ? AND business_id = ?`,
       [
-        customer_id,
-        scheduled_time,
-        priority_level,
-        delivery_notes,
+        customer_id || null,
+        scheduled_time || null,
+        priority_level || null,
+        delivery_notes || null,
         driver_id || null,
         uuid,
         business_id,
@@ -239,6 +311,21 @@ const updateDeliveryDriver = async (req, res) => {
   const { driver_id } = req.body;
 
   try {
+    const [existing] = await pool.query(
+      "SELECT delivery_status FROM deliveries WHERE uuid = ? AND business_id = ?",
+      [uuid, business_id],
+    );
+
+    if (existing.length === 0) {
+      return res.status(404).json({ message: "Delivery not found" });
+    }
+
+    if (["delivered", "cancelled"].includes(existing[0].delivery_status)) {
+      return res.status(400).json({
+        message: `Cannot assign driver to an order that is already ${existing[0].delivery_status}`,
+      });
+    }
+
     await pool.query(
       "UPDATE deliveries SET driver_id = ? WHERE uuid = ? AND business_id = ?",
       [driver_id || null, uuid, business_id],
