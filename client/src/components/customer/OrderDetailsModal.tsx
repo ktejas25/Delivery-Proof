@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
 import StatusBadge, { DeliveryStatus } from '../ui/StatusBadge';
-import { FaUser, FaMapMarkerAlt, FaBox, FaClock, FaCamera, FaSignature } from 'react-icons/fa';
+import { User, MapPin, Package, Clock, Camera, PenTool } from 'lucide-react';
 import api from '../../services/api';
 import { motion } from 'framer-motion';
 
@@ -57,7 +57,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ delivery, onClose
           <div className="space-y-6">
             <div className="flex gap-4 group">
               <div className="w-12 h-12 bg-white shadow-sm border border-gray-100 text-indigo-600 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-                <FaUser size={20} />
+                <User size={20} />
               </div>
               <div className="flex-1">
                 <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Assigned Driver</p>
@@ -68,7 +68,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ delivery, onClose
 
             <div className="flex gap-4 group">
               <div className="w-12 h-12 bg-white shadow-sm border border-gray-100 text-indigo-600 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-                <FaMapMarkerAlt size={20} />
+                <MapPin size={20} />
               </div>
               <div className="flex-1">
                 <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Delivery Address</p>
@@ -80,7 +80,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ delivery, onClose
           <div className="space-y-6">
             <div className="flex gap-4 group">
               <div className="w-12 h-12 bg-white shadow-sm border border-gray-100 text-indigo-600 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-                <FaBox size={20} />
+                <Package size={20} />
               </div>
               <div className="flex-1">
                 <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Package Info</p>
@@ -91,7 +91,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ delivery, onClose
 
             <div className="flex gap-4 group">
               <div className="w-12 h-12 bg-white shadow-sm border border-gray-100 text-indigo-600 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-                <FaClock size={20} />
+                <Clock size={20} />
               </div>
               <div className="flex-1">
                 <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Scheduled Time</p>
@@ -120,7 +120,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ delivery, onClose
                 {proof.photoUrl && (
                   <div className="group">
                     <div className="flex items-center gap-2 mb-3 ml-1 text-gray-400 font-bold text-[10px] uppercase tracking-widest">
-                      <FaCamera size={12} className="text-indigo-400" /> Photo Confirmation
+                      <Camera size={12} className="text-indigo-400" /> Photo Confirmation
                     </div>
                     <div className="relative rounded-3xl overflow-hidden shadow-lg shadow-indigo-100/20 border border-gray-100 ring-4 ring-white">
                       <img src={proof.photoUrl} alt="Delivery Proof" className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-700" />
@@ -132,7 +132,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ delivery, onClose
                 {proof.signature && (
                   <div className="group">
                     <div className="flex items-center gap-2 mb-3 ml-1 text-gray-400 font-bold text-[10px] uppercase tracking-widest">
-                      <FaSignature size={12} className="text-indigo-400" /> Digital Signature
+                      <PenTool size={12} className="text-indigo-400" /> Digital Signature
                     </div>
                     <div className="h-48 bg-gray-50 rounded-3xl p-6 flex flex-col items-center justify-center border border-gray-100 ring-4 ring-white">
                       <img src={proof.signature} alt="Signature" className="max-w-full max-h-full object-contain grayscale" />

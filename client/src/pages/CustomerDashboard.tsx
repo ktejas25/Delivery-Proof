@@ -1,17 +1,19 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  FaTruck,
-  FaHistory,
-  FaHome,
-  FaSearch,
-  FaPlus,
-  FaMapMarkerAlt,
-  FaFilter,
-  FaChevronLeft,
-  FaChevronRight,
-  FaBoxOpen,
-} from "react-icons/fa";
+  Truck,
+  History,
+  Home,
+  Search,
+  Plus,
+  MapPin,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  PackageOpen,
+  Star,
+  AlertCircle
+} from "lucide-react";
 import toast from "react-hot-toast";
 
 import api from "../services/api";
@@ -150,9 +152,9 @@ const CustomerDashboard = () => {
   }, [fetchData]);
 
   const tabs = useMemo(() => [
-    { id: "active", label: "My Deliveries", icon: FaTruck },
-    { id: "history", label: "Order History", icon: FaHistory },
-    { id: "addresses", label: "My Addresses", icon: FaHome },
+    { id: "active", label: "My Deliveries", icon: Truck },
+    { id: "history", label: "Order History", icon: History },
+    { id: "addresses", label: "My Addresses", icon: Home },
   ], []);
 
   const containerVariants = {
@@ -247,7 +249,7 @@ const CustomerDashboard = () => {
                       </motion.div>
                     ) : (
                       <DashboardEmptyState
-                        icon={FaBoxOpen}
+                        icon={PackageOpen}
                         title="Everything's Arrived"
                         message="You don't have any incoming packages at the moment."
                       />
@@ -291,7 +293,7 @@ const CustomerDashboard = () => {
                   {/* Filters */}
                   <div className="p-8 border-b border-gray-50 flex flex-col md:flex-row gap-6 justify-between items-center bg-gray-50/30">
                     <div className="relative w-full md:w-[28rem]">
-                      <FaSearch className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input
                         type="text"
                         placeholder="Search by order ID, driver or items..."
@@ -303,7 +305,7 @@ const CustomerDashboard = () => {
 
                     <div className="flex items-center gap-3 w-full md:w-auto">
                       <div className="flex items-center gap-2 text-gray-400 font-black text-[10px] uppercase tracking-widest px-3">
-                        <FaFilter /> Filter
+                        <Filter size={13} /> Filter
                       </div>
                       <select
                         value={statusFilter}
@@ -359,17 +361,19 @@ const CustomerDashboard = () => {
                                 <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                   {getStatusKey(d) === "delivered" && (
                                     <button
+                                      title="Rate Driver"
                                       onClick={(e) => { e.stopPropagation(); handleRate(d); }}
-                                      className="p-3 text-yellow-500 hover:bg-yellow-50 rounded-2xl transition-all active:scale-90"
+                                      className="p-3 text-yellow-500 hover:bg-yellow-50 rounded-2xl transition-all active:scale-90 cursor-pointer"
                                     >
-                                      <FaPlus title="Rate" />
+                                      <Star size={16} className="fill-amber-400 text-amber-400" />
                                     </button>
                                   )}
                                   <button
+                                    title="Report Issue / Dispute"
                                     onClick={(e) => { e.stopPropagation(); handleDispute(d); }}
-                                    className="p-3 text-red-500 hover:bg-red-50 rounded-2xl transition-all active:scale-90"
+                                    className="p-3 text-red-500 hover:bg-red-50 rounded-2xl transition-all active:scale-90 cursor-pointer"
                                   >
-                                    <FaHistory title="Report" />
+                                    <AlertCircle size={16} />
                                   </button>
                                 </div>
                               </td>
@@ -381,7 +385,7 @@ const CustomerDashboard = () => {
                   ) : (
                     <div className="py-24">
                       <DashboardEmptyState
-                        icon={FaHistory}
+                        icon={History}
                         title="Archived Orders"
                         message="Your completed deliveries will appear here once they are processed."
                       />
@@ -400,14 +404,14 @@ const CustomerDashboard = () => {
                           onClick={() => setCurrentPage((p) => p - 1)}
                           className="flex items-center gap-2 px-6 py-3 rounded-2xl border-2 border-gray-100 text-xs font-black uppercase tracking-widest disabled:opacity-30 hover:bg-white transition-all shadow-sm active:scale-95"
                         >
-                          <FaChevronLeft size={10} /> Prev
+                          <ChevronLeft size={12} /> Prev
                         </button>
                         <button
                           disabled={currentPage === totalPages}
                           onClick={() => setCurrentPage((p) => p + 1)}
                           className="flex items-center gap-2 px-6 py-3 rounded-2xl border-2 border-gray-100 text-xs font-black uppercase tracking-widest disabled:opacity-30 hover:bg-white transition-all shadow-sm active:scale-95"
                         >
-                          Next <FaChevronRight size={10} />
+                          Next <ChevronRight size={12} />
                         </button>
                       </div>
                     </div>
@@ -426,9 +430,9 @@ const CustomerDashboard = () => {
                     </div>
                     <button
                       onClick={handleAddAddress}
-                      className="flex items-center gap-3 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 active:scale-95"
+                      className="flex items-center gap-3 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 active:scale-95 cursor-pointer"
                     >
-                      <FaPlus /> Add New Location
+                      <Plus size={16} /> Add New Location
                     </button>
                   </div>
 
@@ -450,15 +454,15 @@ const CustomerDashboard = () => {
                     </motion.div>
                   ) : (
                     <DashboardEmptyState
-                      icon={FaMapMarkerAlt}
+                      icon={MapPin}
                       title="Coordinates Missing"
                       message="You haven't added any delivery addresses to your profile yet."
                       action={
                         <button
                           onClick={handleAddAddress}
-                          className="flex items-center gap-3 px-10 py-5 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-200 active:scale-95 mt-4"
+                          className="flex items-center gap-3 px-10 py-5 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-200 active:scale-95 mt-4 cursor-pointer"
                         >
-                          <FaPlus /> Start by Adding One
+                          <Plus size={16} /> Start by Adding One
                         </button>
                       }
                     />

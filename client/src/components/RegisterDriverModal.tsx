@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, User, Mail, Lock, Car, Key } from "lucide-react";
+import { X, User, Mail, Lock, Car, Key, AlertTriangle } from "lucide-react";
 import api from "../services/api";
 
 interface RegisterDriverModalProps {
@@ -336,8 +336,9 @@ const RegisterDriverModal: React.FC<RegisterDriverModalProps> = ({
                 border: "1px solid #ffa39e",
               }}
             >
-              <p style={{ color: "#ff4d4f", fontSize: "13px", margin: 0 }}>
-                ⚠ {error}
+              <p style={{ color: "#ff4d4f", fontSize: "13px", margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
+                <AlertTriangle size={15} />
+                <span>{error}</span>
               </p>
             </div>
           )}

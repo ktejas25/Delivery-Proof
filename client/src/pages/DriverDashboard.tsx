@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { Sparkles, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useDeliveries } from "../components/driver/hooks/useDeliveries";
 import { useGPS } from "../components/driver/hooks/useGPS";
@@ -78,12 +79,20 @@ const ShiftCompleteCard: React.FC<ShiftCompleteCardProps> = ({
   earnings,
   onEndShift,
 }) => (
-  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center space-y-4">
-    <h2 className="text-xl font-bold text-emerald-900">Shift Complete 🎉</h2>
-    <p className="text-emerald-700">Total earnings: ${earnings.toFixed(2)}</p>
+  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center space-y-4 shadow-sm">
+    <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+      <CheckCircle2 size={24} />
+    </div>
+    <div>
+      <h2 className="text-xl font-bold text-emerald-900 flex items-center justify-center gap-2">
+        <span>Shift Complete</span>
+        <Sparkles size={18} className="text-emerald-600" />
+      </h2>
+      <p className="text-xs text-emerald-700 mt-1">Total earnings for this shift: <strong className="text-sm font-bold text-emerald-900">${earnings.toFixed(2)}</strong></p>
+    </div>
     <button
       onClick={onEndShift}
-      className="px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500"
+      className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-xs hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20 cursor-pointer"
     >
       End Shift
     </button>

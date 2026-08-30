@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, Truck, Users, User, ArrowRight, Loader2, AlertTriangle } from 'lucide-react';
+import { Search, X, Truck, Users, User, ArrowRight, Loader2, AlertTriangle, Star } from 'lucide-react';
 import api from '../../../../services/api';
 import { SearchResults } from '../types';
 
@@ -168,8 +168,13 @@ export const GlobalSearchDropdown: React.FC<GlobalSearchDropdownProps> = ({
                       >
                         <div>
                           <p className="font-bold text-slate-900">{dr.name}</p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">
-                            {dr.vehicleType} • Rating: {dr.rating} ★
+                          <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
+                            <span>{dr.vehicleType}</span>
+                            <span>•</span>
+                            <span className="flex items-center gap-0.5">
+                              <span>Rating: {dr.rating}</span>
+                              <Star size={11} className="fill-amber-400 text-amber-400 inline" />
+                            </span>
                           </p>
                         </div>
                         <ArrowRight size={13} className="text-slate-400" />

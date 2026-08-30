@@ -1,5 +1,4 @@
-import React from 'react';
-import { Star, ShieldCheck, ArrowRight, Trophy, UserCheck } from 'lucide-react';
+import { Star, ShieldCheck, ArrowRight, Trophy, UserCheck, Medal } from 'lucide-react';
 import { DriverLeaderboardItem } from '../types';
 
 interface TopDriversLeaderboardProps {
@@ -16,22 +15,22 @@ export const TopDriversLeaderboard: React.FC<TopDriversLeaderboardProps> = ({
   const getRankBadge = (rank: number) => {
     if (rank === 1) {
       return (
-        <div className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-black text-xs shadow-xs border border-amber-300">
-          🥇
+        <div className="w-6 h-6 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center font-black text-xs shadow-xs border border-amber-300">
+          <Medal size={14} className="text-amber-500" />
         </div>
       );
     }
     if (rank === 2) {
       return (
-        <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-black text-xs border border-slate-300">
-          🥈
+        <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-black text-xs border border-slate-300">
+          <Medal size={14} className="text-slate-400" />
         </div>
       );
     }
     if (rank === 3) {
       return (
-        <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-black text-xs border border-orange-300">
-          🥉
+        <div className="w-6 h-6 rounded-full bg-orange-100 text-amber-700 flex items-center justify-center font-black text-xs border border-orange-300">
+          <Medal size={14} className="text-amber-700" />
         </div>
       );
     }

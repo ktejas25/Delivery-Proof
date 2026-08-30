@@ -1,11 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { IconType } from 'react-icons';
+import { LucideIcon } from 'lucide-react';
 
 interface Tab {
   id: string;
   label: string;
-  icon: IconType;
+  icon: LucideIcon | React.ComponentType<{ size?: number; className?: string }>;
 }
 
 interface TabsProps {

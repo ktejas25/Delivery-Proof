@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaCheck } from 'react-icons/fa';
+import { Check } from 'lucide-react';
 
 const steps = [
   { id: "scheduled", label: "Scheduled" },
@@ -46,7 +46,7 @@ const DeliveryTimeline: React.FC<DeliveryTimelineProps> = ({ status }) => {
               }`}
             >
               {isCompleted ? (
-                <FaCheck size={12} />
+                <Check size={14} />
               ) : (
                 <div className={`w-2 h-2 rounded-full ${isCurrent ? "bg-green-500 animate-pulse" : "bg-gray-200"}`} />
               )}

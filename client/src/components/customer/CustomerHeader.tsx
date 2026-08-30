@@ -1,14 +1,11 @@
 import { useAuth } from "../../contexts/AuthContext";
-import { FaTruck, FaSignOutAlt } from "react-icons/fa";
+import { PackageCheck, LogOut } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 
-
 const CustomerHeader = ({ user }: any) => {
   const { logout } = useAuth();
-
-
 
   const [upcomingOrdersCount, setUpcomingOrdersCount] = useState(0);
 
@@ -29,20 +26,18 @@ const CustomerHeader = ({ user }: any) => {
       <div className="max-w-[1440px] mx-auto px-4 md:px-8">
         <div className="flex items-center justify-between h-20">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-200">
-              <FaTruck size={20} />
+            <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-blue-500/25">
+              <PackageCheck size={22} />
             </div>
             <div>
               <h1 className="text-xl font-extrabold text-gray-900 tracking-tight">
-                Delivery<span className="text-green-600">Proof</span>
+                Delivery<span className="text-blue-600">Proof</span>
               </h1>
             </div>
           </div>
 
           <div className="flex items-center gap-4 md:gap-8">
             <div className="hidden md:block">
-              {/* TODO: Add notification bell */}
-              {/*create an const to update  the count on notification bell should be updated based on the number of upcoming orders */}
               <NotificationBell count={upcomingOrdersCount} />
             </div>
 
@@ -60,10 +55,10 @@ const CustomerHeader = ({ user }: any) => {
 
             <button
               onClick={logout}
-              className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-full text-sm font-bold hover:bg-red-600 hover:text-white transition-all duration-300 group"
+              className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-full text-sm font-bold hover:bg-red-600 hover:text-white transition-all duration-300 group cursor-pointer"
             >
               <span className="hidden sm:inline">Logout</span>
-              <FaSignOutAlt className="group-hover:translate-x-1 transition-transform" />
+              <LogOut size={16} className="group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
         </div>

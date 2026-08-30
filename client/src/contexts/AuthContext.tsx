@@ -18,6 +18,7 @@ interface AuthContextType {
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (data: any) => Promise<void>;
+  googleLogin: (googleData: { email: string; name?: string; first_name?: string; last_name?: string; business_name?: string }) => Promise<void>;
   customerLogin: (email: string, password: string) => Promise<void>;
   customerRegister: (data: any) => Promise<void>;
   logout: () => void;
@@ -57,6 +58,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     await api.post("/auth/register", data);
   };
 
+  const googleLogin = async (googleData: { email: string; name?: string; first_name?: string; last_name?: string; business_name?: string }) => {
+    const response = await api.post("/auth/google", googleData);
+    const { token, user } = response.data;
+    setToken(token);
+    setUser(user);
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(user));
+  };
+
   const customerLogin = async (email: string, password: string) => {
     const response = await api.post("/customer/login", { email, password });
     const { token, user } = response.data;
@@ -93,6 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         token,
         login,
         register,
+        googleLogin,
         customerLogin,
         customerRegister,
         logout,

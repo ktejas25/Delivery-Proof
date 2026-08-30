@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FaMapMarkerAlt, FaEdit, FaTrash, FaCheckCircle } from 'react-icons/fa';
+import { MapPin, Edit, Trash2, CheckCircle2 } from 'lucide-react';
 import { Tooltip } from 'react-tooltip';
 
 interface AddressCardProps {
@@ -18,11 +18,11 @@ const AddressCard: React.FC<AddressCardProps> = ({ address, onEdit, onDelete }) 
       <div>
         <div className="flex justify-between items-start mb-4">
           <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
-            <FaMapMarkerAlt size={20} />
+            <MapPin size={20} />
           </div>
           {address.is_default && (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 border border-green-200 uppercase tracking-wider">
-              <FaCheckCircle size={10} /> Default
+              <CheckCircle2 size={11} /> Default
             </span>
           )}
         </div>
@@ -38,17 +38,17 @@ const AddressCard: React.FC<AddressCardProps> = ({ address, onEdit, onDelete }) 
           onClick={onEdit}
           data-tooltip-id="edit-address"
           data-tooltip-content="Edit Address"
-          className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+          className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
         >
-          <FaEdit size={16} />
+          <Edit size={16} />
         </button>
         <button
           onClick={onDelete}
           data-tooltip-id="delete-address"
           data-tooltip-content="Delete Address"
-          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all cursor-pointer"
         >
-          <FaTrash size={16} />
+          <Trash2 size={16} />
         </button>
         
         <Tooltip id="edit-address" />

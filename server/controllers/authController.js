@@ -256,9 +256,121 @@ const createDriver = async (req, res) => {
   }
 };
 
+const googleAuth = async (req, res) => {
+  const { email, name, first_name, last_name, business_name, google_id } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: "Email is required for Google authentication" });
+  }
+
+  const { v4: uuidv4 } = await import("uuid");
+  const connection = await pool.getConnection();
+
+  try {
+    // 1. Check if user already exists
+    const [users] = await connection.query(
+      `SELECT u.*, b.uuid as business_uuid, b.name as business_name 
+       FROM users u 
+       JOIN businesses b ON u.business_id = b.id 
+       WHERE u.email = ? AND u.is_active = 1`,
+      [email]
+    );
+
+    let authenticatedUser;
+    let businessUuid;
+
+    if (users.length > 0) {
+      authenticatedUser = users[0];
+      businessUuid = authenticatedUser.business_uuid;
+
+      // Update last login
+      await connection.query("UPDATE users SET last_login = NOW() WHERE id = ?", [authenticatedUser.id]);
+    } else {
+      // 2. New Google user -> auto-register as admin for new business
+      await connection.beginTransaction();
+
+      const userFirstName = first_name || (name ? name.split(' ')[0] : 'Google');
+      const userLastName = last_name || (name ? name.split(' ').slice(1).join(' ') : 'User');
+      const bizName = business_name || `${userFirstName}'s Enterprise`;
+
+      // Create Business
+      businessUuid = uuidv4();
+      const [bizResult] = await connection.query(
+        "INSERT INTO businesses (uuid, name, email) VALUES (?, ?, ?)",
+        [businessUuid, bizName, email]
+      );
+      const businessId = bizResult.insertId;
+
+      // Create User
+      const userUuid = uuidv4();
+      const dummyPassword = `GOOGLE_AUTH_${uuidv4()}`;
+      const hashedPassword = await hashPassword(dummyPassword);
+
+      const [userResult] = await connection.query(
+        `INSERT INTO users (uuid, business_id, email, password_hash, first_name, last_name, user_type, is_active, last_login) 
+         VALUES (?, ?, ?, ?, ?, ?, 'admin', 1, NOW())`,
+        [userUuid, businessId, email, hashedPassword, userFirstName, userLastName]
+      );
+
+      await connection.commit();
+
+      authenticatedUser = {
+        id: userResult.insertId,
+        uuid: userUuid,
+        business_id: businessId,
+        business_uuid: businessUuid,
+        business_name: bizName,
+        email: email,
+        first_name: userFirstName,
+        last_name: userLastName,
+        user_type: 'admin'
+      };
+    }
+
+    let customer_id = null;
+    if (authenticatedUser.user_type === 'customer') {
+      const [customers] = await connection.query("SELECT id FROM customers WHERE email = ?", [email]);
+      if (customers.length > 0) {
+        customer_id = customers[0].id;
+      }
+    }
+
+    const token = generateToken({
+      id: authenticatedUser.id,
+      uuid: authenticatedUser.uuid,
+      email: authenticatedUser.email,
+      business_id: authenticatedUser.business_id,
+      business_uuid: businessUuid,
+      user_type: authenticatedUser.user_type,
+      customer_id: customer_id,
+    });
+
+    res.json({
+      token,
+      user: {
+        uuid: authenticatedUser.uuid,
+        email: authenticatedUser.email,
+        first_name: authenticatedUser.first_name,
+        last_name: authenticatedUser.last_name,
+        user_type: authenticatedUser.user_type,
+        business_name: authenticatedUser.business_name,
+        business_uuid: businessUuid
+      },
+      message: "Google authentication successful"
+    });
+  } catch (error) {
+    if (connection) await connection.rollback().catch(() => {});
+    console.error("Google Auth error:", error);
+    res.status(500).json({ message: "Google authentication failed", error: error.message });
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
 module.exports = {
   register,
   login,
+  googleAuth,
   logout,
   getDrivers,
   createDriver,

@@ -1,15 +1,15 @@
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
-  FaUser,
-  FaBox,
-  FaMapMarkerAlt,
-  FaCalendarAlt,
-  FaChevronRight,
-  FaClock,
-  FaExclamationTriangle,
-  FaStar,
-} from "react-icons/fa";
+  User,
+  Package,
+  MapPin,
+  Calendar,
+  ChevronRight,
+  Clock,
+  AlertTriangle,
+  Star,
+} from "lucide-react";
 import StatusBadge, { DeliveryStatus } from "../ui/StatusBadge";
 import TrackingMap from "../TrackingMap";
 import DeliveryTimeline from "./DeliveryTimeline";
@@ -65,7 +65,7 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({
               </h3>
             </div>
             <div className="flex items-center text-gray-400 text-xs font-bold gap-1.5 ml-1">
-              <FaCalendarAlt size={12} className="text-indigo-400" />
+              <Calendar size={12} className="text-indigo-400" />
               <span>
                 {delivery.created_at || delivery.scheduled_time
                   ? new Date(
@@ -91,7 +91,7 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({
         <div className="grid grid-cols-2 gap-4 mb-8">
           <div className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50/50 border border-transparent group-hover:border-indigo-50 group-hover:bg-indigo-50/30 transition-all duration-500">
             <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-indigo-500 shadow-sm border border-gray-100">
-              <FaUser size={16} />
+              <User size={16} />
             </div>
             <div>
               <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">
@@ -105,7 +105,7 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({
 
           <div className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50/50 border border-transparent group-hover:border-indigo-50 group-hover:bg-indigo-50/30 transition-all duration-500">
             <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-indigo-500 shadow-sm border border-gray-100">
-              <FaClock size={16} />
+              <Clock size={16} />
             </div>
             <div>
               <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">
@@ -128,12 +128,12 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({
         <div className="space-y-4 mb-8">
           <div className="flex items-start gap-4">
             <div className="mt-1 flex-shrink-0">
-              <FaMapMarkerAlt className="text-red-400" size={16} />
+              <MapPin className="text-red-400" size={16} />
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            <FaBox className="text-orange-400 flex-shrink-0" size={16} />
+            <Package className="text-orange-400 flex-shrink-0" size={16} />
             <p className="text-sm font-bold text-gray-600">
               {delivery.items_count || 1}{" "}
               <span className="text-gray-400 font-medium">
@@ -155,7 +155,7 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({
           ) : (
             <div className="h-56 flex flex-col items-center justify-center gap-4 p-8 text-center">
               <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-md animate-bounce">
-                <FaMapMarkerAlt
+                <MapPin
                   className={
                     currentStatus === "delivered"
                       ? "text-green-400"
@@ -185,11 +185,11 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({
       <div className="px-8 py-5 bg-gray-50/80 border-t border-gray-100 flex flex-wrap gap-3 items-center justify-between">
         <button
           onClick={onDetails}
-          className="flex items-center gap-2 text-sm font-black text-indigo-600 hover:text-indigo-800 transition-all group/btn"
+          className="flex items-center gap-2 text-sm font-black text-indigo-600 hover:text-indigo-800 transition-all group/btn cursor-pointer"
         >
           View Full Details
-          <FaChevronRight
-            size={10}
+          <ChevronRight
+            size={14}
             className="transition-transform group-hover/btn:translate-x-1"
           />
         </button>
@@ -198,9 +198,9 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({
           {currentStatus === "delivered" && onRate && (
             <button
               onClick={onRate}
-              className="flex items-center gap-2 px-5 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-white rounded-2xl text-xs font-black transition-all shadow-lg shadow-yellow-200 active:scale-95"
+              className="flex items-center gap-2 px-5 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-white rounded-2xl text-xs font-black transition-all shadow-lg shadow-yellow-200 active:scale-95 cursor-pointer"
             >
-              <FaStar size={14} /> Rate Driver
+              <Star size={14} className="fill-white" /> Rate Driver
             </button>
           )}
 
@@ -208,9 +208,9 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({
             onDispute && (
               <button
                 onClick={onDispute}
-                className="flex items-center gap-2 px-5 py-2.5 bg-white border border-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-2xl text-xs font-black transition-all shadow-sm active:scale-95"
+                className="flex items-center gap-2 px-5 py-2.5 bg-white border border-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-2xl text-xs font-black transition-all shadow-sm active:scale-95 cursor-pointer"
               >
-                <FaExclamationTriangle size={14} /> Dispute
+                <AlertTriangle size={14} /> Dispute
               </button>
             )}
         </div>

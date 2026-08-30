@@ -1,12 +1,12 @@
 import React from 'react';
 import { 
-  FaClock, 
-  FaTruck, 
-  FaMapMarkerAlt, 
-  FaCheckCircle, 
-  FaTimesCircle, 
-  FaExclamationTriangle 
-} from 'react-icons/fa';
+  Clock, 
+  Truck, 
+  MapPin, 
+  CheckCircle2, 
+  XCircle, 
+  AlertTriangle 
+} from 'lucide-react';
 
 export type DeliveryStatus = 
   | 'scheduled' 
@@ -26,47 +26,47 @@ interface StatusBadgeProps {
 const statusConfig = {
   scheduled: {
     color: 'bg-gray-100 text-gray-700 border-gray-200',
-    icon: FaClock,
+    icon: Clock,
     label: 'Scheduled'
   },
   dispatched: {
     color: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    icon: FaTruck,
+    icon: Truck,
     label: 'Dispatched'
   },
   en_route: {
     color: 'bg-blue-100 text-blue-700 border-blue-200',
-    icon: FaMapMarkerAlt,
+    icon: MapPin,
     label: 'En Route'
   },
   delivered: {
     color: 'bg-green-100 text-green-700 border-green-200',
-    icon: FaCheckCircle,
+    icon: CheckCircle2,
     label: 'Delivered'
   },
   cancelled: {
     color: 'bg-red-50 text-red-600 border-red-100',
-    icon: FaTimesCircle,
+    icon: XCircle,
     label: 'Cancelled'
   },
   failed: {
     color: 'bg-red-100 text-red-700 border-red-200',
-    icon: FaExclamationTriangle,
+    icon: AlertTriangle,
     label: 'Failed'
   },
   pending: {
     color: 'bg-gray-100 text-gray-700 border-gray-200',
-    icon: FaClock,
+    icon: Clock,
     label: 'Pending'
   },
   arrived: {
     color: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-    icon: FaMapMarkerAlt,
+    icon: MapPin,
     label: 'Arrived'
   },
   disputed: {
     color: 'bg-red-50 text-red-600 border-red-100',
-    icon: FaExclamationTriangle,
+    icon: AlertTriangle,
     label: 'Disputed'
   }
 };
@@ -77,7 +77,7 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
 
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${config.color}`}>
-      <Icon size={10} />
+      <Icon size={12} />
       {config.label}
     </span>
   );

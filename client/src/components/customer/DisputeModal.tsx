@@ -3,7 +3,7 @@ import Modal from '../ui/Modal';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { FaExclamationTriangle } from 'react-icons/fa';
+import { AlertTriangle } from 'lucide-react';
 
 interface DisputeModalProps {
   isOpen: boolean;
@@ -45,7 +45,7 @@ const DisputeModal: React.FC<DisputeModalProps> = ({ isOpen, onClose, delivery }
         {/* Warning Banner */}
         <div className="bg-red-50 border border-red-100 p-4 rounded-3xl flex items-start gap-4">
           <div className="w-10 h-10 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center flex-shrink-0">
-            <FaExclamationTriangle size={18} />
+            <AlertTriangle size={18} />
           </div>
           <div>
             <p className="text-xs font-black text-red-600 uppercase tracking-widest mb-1">Attention Required</p>

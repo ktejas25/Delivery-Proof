@@ -8,6 +8,8 @@ import {
   Edit,
   XCircle,
   Eye,
+  Search,
+  Plus,
 } from "lucide-react";
 import ProofModal from "../components/ProofModal";
 import NewDeliveryModal from "../components/NewDeliveryModal";
@@ -343,9 +345,11 @@ const Deliveries: React.FC = () => {
                 top: "50%",
                 transform: "translateY(-50%)",
                 color: "var(--text-muted)",
+                display: "flex",
+                alignItems: "center",
               }}
             >
-              🔍
+              <Search size={15} />
             </span>
             <input
               type="text"
@@ -364,8 +368,10 @@ const Deliveries: React.FC = () => {
           <button
             className="btn btn-primary"
             onClick={() => setShowNewModal(true)}
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
           >
-            + New Delivery
+            <Plus size={16} />
+            <span>New Delivery</span>
           </button>
         </div>
       </div>

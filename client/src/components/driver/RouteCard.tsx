@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Phone, Navigation } from "lucide-react";
+import { Phone, Navigation, CheckCircle2 } from "lucide-react";
 import { Delivery } from "./types";
 import ActionButton from "./ui/ActionButton";
 import StatusBadge from "./ui/StatusBadge";
@@ -128,8 +128,9 @@ const RouteCard: React.FC<RouteCardProps> = React.memo(
         )}
 
         {delivery.delivery_status === "delivered" && (
-          <div className="w-full text-center bg-emerald-50 text-emerald-700 py-2 rounded-lg text-sm font-semibold">
-            ✓ Completed
+          <div className="w-full flex items-center justify-center gap-1.5 bg-emerald-50 text-emerald-700 py-2 rounded-xl text-xs font-bold border border-emerald-200/60">
+            <CheckCircle2 size={14} className="text-emerald-600" />
+            <span>Completed</span>
           </div>
         )}
       </div>

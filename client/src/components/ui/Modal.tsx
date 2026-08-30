@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaTimes } from 'react-icons/fa';
+import { X } from 'lucide-react';
 
 interface ModalProps {
   isOpen: boolean;
@@ -34,10 +34,10 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
               <h3 className="text-xl font-bold text-gray-800">{title}</h3>
               <button
                 onClick={onClose}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
-                <FaTimes />
+                <X size={18} />
               </button>
             </div>
             

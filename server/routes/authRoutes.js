@@ -2,6 +2,7 @@ const express = require("express");
 const {
   register,
   login,
+  googleAuth,
   logout,
   getDrivers,
   createDriver,
@@ -14,6 +15,7 @@ const router = express.Router();
 
 router.post("/register", register);
 router.post("/login", login);
+router.post("/google", googleAuth);
 router.post("/logout", authenticateToken, logout);
 router.get(
   "/drivers",

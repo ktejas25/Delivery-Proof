@@ -14,7 +14,8 @@ import {
   Navigation,
   ChevronDown,
   Calendar,
-  CheckCircle2
+  CheckCircle2,
+  PackageCheck
 } from "lucide-react";
 import io from "socket.io-client";
 import api from "../services/api";
@@ -197,7 +198,7 @@ const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between mb-6 px-2">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-blue-500/20">
-                DP
+                <PackageCheck size={19} />
               </div>
               <div>
                 <h2 className="font-extrabold text-slate-900 text-base tracking-tight leading-none">
