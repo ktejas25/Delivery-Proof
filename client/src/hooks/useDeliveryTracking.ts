@@ -13,9 +13,13 @@ export default function useDeliveryTracking(uuid: string) {
 
   useEffect(() => {
 
-    const socket = io(
-      import.meta.env.VITE_API_BASE_URL || "http://localhost:5000"
-    );
+    const socketUrl =
+      import.meta.env.VITE_SOCKET_URL ||
+      import.meta.env.VITE_API_BASE_URL ||
+      import.meta.env.VITE_API_URL ||
+      (import.meta.env.DEV ? "http://localhost:5000" : undefined);
+
+    const socket = socketUrl ? io(socketUrl) : io();
 
     socketRef.current = socket;
 

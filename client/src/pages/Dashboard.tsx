@@ -157,7 +157,12 @@ const Dashboard: React.FC = () => {
 
   // 3. Socket.IO Real-time Synchronization
   useEffect(() => {
-    const socket = io();
+    const socketUrl =
+      import.meta.env.VITE_SOCKET_URL ||
+      import.meta.env.VITE_API_BASE_URL ||
+      import.meta.env.VITE_API_URL ||
+      (import.meta.env.DEV ? "http://localhost:5000" : undefined);
+    const socket = socketUrl ? io(socketUrl) : io();
 
     if (user?.business_id) {
       socket.emit("join_dashboard", user.business_id);
