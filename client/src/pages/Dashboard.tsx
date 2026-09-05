@@ -128,7 +128,12 @@ const Dashboard: React.FC = () => {
       setTopDrivers(driversRes.data);
       setFleetOverview(fleetRes.data);
       setAiInsights(insightsRes.data);
-      setRecentActivities(activityRes.data);
+      const activityList = Array.isArray(activityRes.data?.activities)
+        ? activityRes.data.activities
+        : Array.isArray(activityRes.data)
+        ? activityRes.data
+        : [];
+      setRecentActivities(activityList);
     } catch (err: any) {
       console.error("Dashboard fetch error:", err);
       setError(err.response?.data?.message || "Failed to load enterprise administration metrics");
@@ -408,7 +413,7 @@ const Dashboard: React.FC = () => {
                     </span>
                   </div>
                   <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {recentActivities.slice(0, 4).map((act) => (
+                    {(recentActivities || []).slice(0, 4).map((act) => (
                       <div key={act.id} className="p-2 rounded-lg bg-slate-50 border border-slate-100">
                         <p className="font-bold text-slate-900 text-[11px]">{act.title}</p>
                         <p className="text-slate-500 text-[10px] mt-0.5">{act.description}</p>

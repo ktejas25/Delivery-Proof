@@ -20,6 +20,12 @@ interface RecentActivityFeedProps {
   onSelectOrder?: (deliveryUuid: string) => void;
 }
 
+const normalizeActivities = (input: any): RecentActivityItem[] => {
+  if (Array.isArray(input)) return input;
+  if (input && Array.isArray(input.activities)) return input.activities;
+  return [];
+};
+
 export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
   activities: initialActivities,
   onViewAll,
@@ -27,10 +33,25 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
 }) => {
   const [filter, setFilter] = useState<'all' | 'delivered' | 'failed' | 'dispute'>('all');
   const [page, setPage] = useState(1);
-  const [activities, setActivities] = useState<RecentActivityItem[]>(initialActivities || []);
+  const [activities, setActivities] = useState<RecentActivityItem[]>(() => normalizeActivities(initialActivities));
   const [totalPages, setTotalPages] = useState(1);
-  const [totalRecords, setTotalRecords] = useState(initialActivities?.length || 0);
+  const [totalRecords, setTotalRecords] = useState(() => {
+    if (Array.isArray(initialActivities)) return initialActivities.length;
+    if (initialActivities && typeof (initialActivities as any).pagination?.totalRecords === 'number') {
+      return (initialActivities as any).pagination.totalRecords;
+    }
+    return 0;
+  });
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialActivities) {
+      const list = normalizeActivities(initialActivities);
+      setActivities(list);
+      const count = (initialActivities as any)?.pagination?.totalRecords ?? list.length;
+      setTotalRecords(count);
+    }
+  }, [initialActivities]);
 
   const fetchPaginatedActivity = async (pageNum: number, currentFilter: string) => {
     setLoading(true);
@@ -42,14 +63,16 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
           filter: currentFilter
         }
       });
-      if (response.data && response.data.activities) {
+      if (response.data && Array.isArray(response.data.activities)) {
         setActivities(response.data.activities);
         setTotalPages(response.data.pagination?.totalPages || 1);
-        setTotalRecords(response.data.pagination?.totalRecords || 0);
+        setTotalRecords(response.data.pagination?.totalRecords || response.data.activities.length);
       } else if (Array.isArray(response.data)) {
         setActivities(response.data);
         setTotalPages(Math.max(1, Math.ceil(response.data.length / 10)));
         setTotalRecords(response.data.length);
+      } else {
+        setActivities([]);
       }
     } catch (error) {
       console.error('Failed to fetch activity records:', error);
@@ -177,7 +200,7 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
               <Loader2 size={22} className="animate-spin text-blue-500" />
               <span>Loading activity records...</span>
             </div>
-          ) : activities.length === 0 ? (
+          ) : !Array.isArray(activities) || activities.length === 0 ? (
             <div className="py-16 text-center text-xs text-slate-400">
               No recent activity records found for this filter.
             </div>
