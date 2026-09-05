@@ -1,12 +1,9 @@
 {
-  "name": "delivery-proof-monorepo",
+  "name": "delivery-proof",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "client",
-    "server"
-  ],
   "scripts": {
+    "postinstall": "npm --prefix client install",
     "build": "npm --prefix client run build",
     "build:client": "npm --prefix client run build",
     "dev": "npm --prefix client run dev",
