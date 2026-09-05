@@ -416,8 +416,25 @@ const DriverDashboard: React.FC = () => {
                 shiftTime={formattedTime}
               />
 
-              {/* Shift Complete Card if all done */}
-              {allDeliveriesCompleted ? (
+              {/* Empty state when 0 deliveries are assigned */}
+              {deliveries.length === 0 ? (
+                <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center space-y-3 shadow-xs">
+                  <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto shadow-2xs">
+                    <Package size={28} />
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900">No Deliveries Scheduled</h3>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    You currently have no active deliveries assigned to your route. Newly dispatched orders will appear here in real-time.
+                  </p>
+                  <button
+                    onClick={() => refetch()}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                  >
+                    <RefreshCw size={13} />
+                    <span>Check for Updates</span>
+                  </button>
+                </div>
+              ) : allDeliveriesCompleted ? (
                 <ShiftCompleteCard
                   completedCount={stats.completed}
                   earnings={stats.totalEarnings}
