@@ -11,8 +11,10 @@ export interface User {
   business_name?: string;
   business_id?: number;
   name?: string;
+  phone?: string;
   must_change_password?: boolean;
 }
+
 
 interface AuthContextType {
   user: User | null;

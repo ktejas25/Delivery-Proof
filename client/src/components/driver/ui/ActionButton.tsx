@@ -10,18 +10,19 @@ interface ActionButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement
 }
 
 const variantStyles = {
-  primary: "bg-blue-600 hover:bg-blue-700 text-white shadow-sm",
+  primary: "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-sm font-bold active:scale-[0.99]",
   secondary:
-    "bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-sm",
-  success: "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm",
-  disabled: "bg-slate-100 text-slate-400 cursor-not-allowed",
+    "bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 border border-slate-200 shadow-sm font-semibold",
+  success: "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white shadow-sm font-bold active:scale-[0.99]",
+  disabled: "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200",
 };
 
 const sizeStyles = {
-  sm: "px-3 py-1.5 text-xs font-semibold rounded-lg min-h-[36px]",
-  md: "px-4 py-2 text-sm font-semibold rounded-xl min-h-[44px]",
-  lg: "px-6 py-3 text-base font-semibold rounded-xl min-h-[52px]",
+  sm: "px-3 py-2 text-xs font-semibold rounded-xl min-h-[44px]",
+  md: "px-4 py-2.5 text-sm font-semibold rounded-xl min-h-[44px]",
+  lg: "px-6 py-3.5 text-base font-bold rounded-xl min-h-[48px]",
 };
+
 
 const ActionButton = React.forwardRef<HTMLButtonElement, ActionButtonProps>(
   (

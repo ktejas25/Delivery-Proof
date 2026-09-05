@@ -88,35 +88,67 @@ const ProofModal: React.FC<ProofModalProps> = ({
     }
   };
 
-  const startSignature = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getCanvasCoordinates = (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+  ) => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    let clientX = 0;
+    let clientY = 0;
+
+    if ("touches" in e) {
+      if (e.touches.length === 0) return null;
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  };
+
+  const startSignature = (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+  ) => {
     const canvas = signatureCanvasRef.current;
     if (!canvas) return;
+    const coords = getCanvasCoordinates(e);
+    if (!coords) return;
 
     isDrawing.current = true;
-    const rect = canvas.getBoundingClientRect();
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     ctx.beginPath();
-    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.moveTo(coords.x, coords.y);
   };
 
-  const drawSignature = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const drawSignature = (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+  ) => {
     if (!isDrawing.current) return;
-
     const canvas = signatureCanvasRef.current;
     if (!canvas) return;
+    const coords = getCanvasCoordinates(e);
+    if (!coords) return;
 
-    const rect = canvas.getBoundingClientRect();
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "#1f2937";
+    ctx.strokeStyle = "#1e293b";
 
-    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.lineTo(coords.x, coords.y);
     ctx.stroke();
   };
 
@@ -131,6 +163,7 @@ const ProofModal: React.FC<ProofModalProps> = ({
       setStep("confirm");
     }
   };
+
 
   const clearSignature = () => {
     const canvas = signatureCanvasRef.current;
@@ -346,9 +379,13 @@ const ProofModal: React.FC<ProofModalProps> = ({
                         onMouseMove={drawSignature}
                         onMouseUp={endSignature}
                         onMouseLeave={endSignature}
-                        className="w-full bg-white cursor-crosshair block"
+                        onTouchStart={startSignature}
+                        onTouchMove={drawSignature}
+                        onTouchEnd={endSignature}
+                        className="w-full bg-white cursor-crosshair block touch-none"
                       />
                     </div>
+
 
                     <button
                       onClick={clearSignature}

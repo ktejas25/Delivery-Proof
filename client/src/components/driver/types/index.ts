@@ -1,4 +1,4 @@
-export type DeliveryStatus = 'pending' | 'in_transit' | 'arrived' | 'delivered';
+export type DeliveryStatus = 'pending' | 'in_transit' | 'arrived' | 'delivered' | 'failed' | 'disputed';
 
 export interface Delivery {
   uuid: string;

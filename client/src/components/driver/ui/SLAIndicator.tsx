@@ -1,6 +1,7 @@
 import React from "react";
-import { Clock } from "lucide-react";
-import { cn } from "../utils";
+import { AlertTriangle, AlertCircle, CheckCircle2 } from "lucide-react";
+
+import { cn, formatDuration } from "../utils";
 import { SLAStatus } from "../types";
 
 interface SLAIndicatorProps {
@@ -9,10 +10,22 @@ interface SLAIndicatorProps {
   showLabel?: boolean;
 }
 
-const slaColors = {
-  "on-time": "text-emerald-600 bg-emerald-50 border-emerald-200",
-  "at-risk": "text-amber-600 bg-amber-50 border-amber-200",
-  late: "text-red-600 bg-red-50 border-red-200 animate-pulse",
+const slaConfigs = {
+  "on-time": {
+    className: "text-emerald-700 bg-emerald-50 border-emerald-200",
+    icon: CheckCircle2,
+    dotColor: "bg-emerald-500",
+  },
+  "at-risk": {
+    className: "text-amber-800 bg-amber-50 border-amber-200",
+    icon: AlertTriangle,
+    dotColor: "bg-amber-500",
+  },
+  late: {
+    className: "text-red-700 bg-red-50 border-red-200",
+    icon: AlertCircle,
+    dotColor: "bg-red-500",
+  },
 };
 
 const SLAIndicator: React.FC<SLAIndicatorProps> = ({
@@ -20,27 +33,35 @@ const SLAIndicator: React.FC<SLAIndicatorProps> = ({
   size = "md",
   showLabel = false,
 }) => {
-  const iconSize = size === "sm" ? 14 : 16;
+  const iconSize = size === "sm" ? 13 : 15;
   const { status, minutesRemaining } = slaStatus;
+  const config = slaConfigs[status] || slaConfigs["on-time"];
+  const Icon = config.icon;
 
   const getLabel = () => {
-    if (status === "late") return `${Math.abs(minutesRemaining)}m Late`;
-    if (minutesRemaining < 60) return `${minutesRemaining}m left`;
-    return `${Math.floor(minutesRemaining / 60)}h ${minutesRemaining % 60}m`;
+    if (status === "late") {
+      return `${formatDuration(minutesRemaining)} overdue`;
+    }
+    if (status === "at-risk") {
+      return `${formatDuration(minutesRemaining)} left`;
+    }
+    return "On schedule";
   };
 
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1 font-semibold rounded-lg border",
-        size === "sm" ? "px-2 py-0.5 text-xs" : "px-2.5 py-1 text-sm",
-        slaColors[status],
+        "inline-flex items-center gap-1.5 font-medium rounded-lg border flex-shrink-0 transition-colors",
+        size === "sm" ? "px-2 py-0.5 text-xs" : "px-2.5 py-1 text-xs",
+        config.className,
       )}
+      title={getLabel()}
     >
-      <Clock size={iconSize} />
-      {showLabel && <span>{getLabel()}</span>}
+      <Icon size={iconSize} className="flex-shrink-0" />
+      {showLabel && <span className="font-semibold">{getLabel()}</span>}
     </div>
   );
 };
 
 export default SLAIndicator;
+

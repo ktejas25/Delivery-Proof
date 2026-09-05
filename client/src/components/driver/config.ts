@@ -35,6 +35,20 @@ export const STATUS_CONFIG: Record<DeliveryStatus, {
     textColor: '#065f46',
     icon: '✓',
   },
+  failed: {
+    label: 'Failed',
+    color: '#ef4444',
+    bgColor: '#fee2e2',
+    textColor: '#991b1b',
+    icon: '✗',
+  },
+  disputed: {
+    label: 'Disputed',
+    color: '#f97316',
+    bgColor: '#ffedd5',
+    textColor: '#9a3412',
+    icon: '⚠',
+  },
 };
 
 export const VALID_TRANSITIONS: Record<DeliveryStatus, DeliveryStatus[]> = {
@@ -42,6 +56,8 @@ export const VALID_TRANSITIONS: Record<DeliveryStatus, DeliveryStatus[]> = {
   in_transit: ['arrived'],
   arrived: ['delivered'],
   delivered: [],
+  failed: [],
+  disputed: [],
 };
 
 export const ACTION_BUTTON_CONFIG: Record<DeliveryStatus, {
@@ -69,7 +85,18 @@ export const ACTION_BUTTON_CONFIG: Record<DeliveryStatus, {
     nextStatus: null,
     variant: 'disabled',
   },
+  failed: {
+    label: 'Delivery Failed',
+    nextStatus: null,
+    variant: 'disabled',
+  },
+  disputed: {
+    label: 'Disputed',
+    nextStatus: null,
+    variant: 'disabled',
+  },
 };
+
 
 export const SLA_CONFIG = {
   at_risk_threshold: 15, // minutes before scheduled time

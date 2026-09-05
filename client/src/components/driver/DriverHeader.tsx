@@ -1,225 +1,174 @@
 import React, { memo } from "react";
 import {
-  MapPin,
-  Clock,
-  DollarSign,
-  Zap,
   LogOut,
-  Search,
-  AlertCircle,
+  MapPin,
+  RefreshCw,
+  WifiOff,
+  Menu,
 } from "lucide-react";
+import { GPSStatus } from "./types";
 import { cn } from "./utils";
 
-// ----- Constants (can be moved) -----
-const GPS_STATUS = {
-  live: "live",
-  connecting: "connecting",
-  denied: "denied",
-  unavailable: "unavailable",
-} as const;
-
-const GPS_LABELS: Record<keyof typeof GPS_STATUS, string> = {
-  live: "GPS Live",
-  connecting: "Connecting",
-  denied: "Blocked",
-  unavailable: "Unavailable",
-};
-
-// ----- Subcomponents -----
-interface MetricCardProps {
-  icon: React.ElementType;
-  value: string | number;
-  iconColor?: string;
-  valueClassName?: string;
-}
-
-const MetricCard: React.FC<MetricCardProps> = memo(
-  ({ icon: Icon, value, iconColor = "text-slate-600", valueClassName }) => (
-    <div className="bg-slate-50 rounded-xl p-2">
-      <Icon size={16} className={cn("mx-auto", iconColor)} />
-      <p className={cn("text-xs font-semibold", valueClassName)}>{value}</p>
-    </div>
-  )
-);
-
-interface StatusBannerProps {
-  icon: React.ElementType;
-  message: string;
-  variant: "warning" | "info" | "error";
-}
-
-const variantStyles = {
-  warning: "bg-amber-50 border-amber-200 text-amber-700",
-  info: "bg-blue-50 border-blue-200 text-blue-700",
-  error: "bg-red-50 border-red-200 text-red-700",
-};
-
-const StatusBanner: React.FC<StatusBannerProps> = memo(
-  ({ icon: Icon, message, variant }) => (
-    <div
-      className={cn(
-        "px-4 py-2 flex items-center gap-2 text-sm font-semibold border-b",
-        variantStyles[variant]
-      )}
-    >
-      <Icon size={16} />
-      {message}
-    </div>
-  )
-);
-
-// ----- Main Component Props -----
-interface Props {
+interface DriverHeaderProps {
   driverName: string;
   isOnline: boolean;
-  gpsStatus: keyof typeof GPS_STATUS;
-  shiftTime: string;
-  stats: {
-    total: number;
-    completed: number;
-    completionPercentage: number;
-    totalEarnings: number;
-  };
-  searchQuery: string;
-  onSearchChange: (q: string) => void;
+  gpsStatus: GPSStatus;
   syncQueueCount?: number;
   isOffline?: boolean;
-  onLogout: () => void;   // <-- added
+  pageTitle?: string;
+  onToggleSidebar?: () => void;
+  onSyncNow?: () => void;
+  onLogout: () => void;
 }
 
-const DriverHeader: React.FC<Props> = memo(
+const gpsConfig: Record<
+  GPSStatus,
+  { label: string; dotClass: string; textClass: string; iconClass: string }
+> = {
+  live: {
+    label: "GPS Live",
+    dotClass: "bg-emerald-500",
+    textClass: "text-emerald-700 bg-emerald-50 border-emerald-200",
+    iconClass: "text-emerald-600",
+  },
+  connecting: {
+    label: "GPS Connecting",
+    dotClass: "bg-amber-500 animate-pulse",
+    textClass: "text-amber-700 bg-amber-50 border-amber-200",
+    iconClass: "text-amber-600",
+  },
+  denied: {
+    label: "GPS Blocked",
+    dotClass: "bg-red-500",
+    textClass: "text-red-700 bg-red-50 border-red-200",
+    iconClass: "text-red-600",
+  },
+  unavailable: {
+    label: "GPS Unavailable",
+    dotClass: "bg-slate-400",
+    textClass: "text-slate-600 bg-slate-100 border-slate-200",
+    iconClass: "text-slate-500",
+  },
+};
+
+const DriverHeader: React.FC<DriverHeaderProps> = memo(
   ({
     driverName,
     isOnline,
     gpsStatus,
-    shiftTime,
-    stats,
-    searchQuery,
-    onSearchChange,
     syncQueueCount = 0,
     isOffline = false,
-    onLogout,              // <-- use this
+    pageTitle = "Today's Route",
+    onToggleSidebar,
+    onSyncNow,
+    onLogout,
   }) => {
-    const handleClearSearch = () => onSearchChange("");
+    const currentGps = gpsConfig[gpsStatus] || gpsConfig.unavailable;
 
     return (
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-slate-200/90 shadow-xs">
+        {/* Offline Alert Banner */}
         {isOffline && (
-          <StatusBanner
-            icon={AlertCircle}
-            message="Offline mode — changes will sync automatically"
-            variant="warning"
-          />
-        )}
-
-        {syncQueueCount > 0 && (
-          <StatusBanner
-            icon={Zap}
-            message={`${syncQueueCount} update${
-              syncQueueCount !== 1 ? "s" : ""
-            } pending`}
-            variant="info"
-          />
-        )}
-
-        <div className="px-4 py-4 space-y-4">
-          {/* Identity row */}
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold">
-                {driverName.charAt(0)}
-              </div>
-              <div>
-                <h1 className="font-bold text-lg">{driverName}</h1>
-                <p className="text-xs text-slate-500 font-semibold">
-                  {isOnline ? "Online" : "Offline"}
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={onLogout}      // <-- use prop
-              aria-label="Logout"
-              className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
-            >
-              <LogOut size={20} />
-            </button>
-          </div>
-
-          {/* Metrics grid */}
-          <div className="grid grid-cols-4 gap-2 text-center">
-            <MetricCard
-              icon={MapPin}
-              value={GPS_LABELS[gpsStatus]}
-              iconColor="text-blue-600"
-            />
-            <MetricCard
-              icon={Clock}
-              value={shiftTime}
-              iconColor="text-amber-600"
-              valueClassName="font-mono"
-            />
-            <MetricCard
-              icon={DollarSign}
-              value={`$${stats.totalEarnings.toFixed(0)}`}
-              iconColor="text-emerald-600"
-              valueClassName="font-bold text-emerald-600"
-            />
-            <MetricCard
-              icon={Zap}
-              value={`${stats.completionPercentage}%`}
-              iconColor="text-indigo-600"
-              valueClassName="font-bold text-indigo-600"
-            />
-          </div>
-
-          {/* Route progress */}
-          <div>
-            <div className="flex justify-between text-xs font-semibold text-slate-600 mb-1">
-              <span>Route Progress</span>
+          <div className="bg-amber-500 text-white px-4 sm:px-6 lg:px-8 py-1.5 text-xs font-semibold flex items-center justify-between transition-all">
+            <div className="flex items-center gap-2">
+              <WifiOff size={14} className="flex-shrink-0" />
               <span>
-                {stats.completed}/{stats.total}
+                Offline mode active
+                {syncQueueCount > 0
+                  ? ` · ${syncQueueCount} pending action${syncQueueCount > 1 ? "s" : ""}`
+                  : ""}
               </span>
             </div>
+            {onSyncNow && syncQueueCount > 0 && (
+              <button
+                onClick={onSyncNow}
+                className="bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-md transition flex items-center gap-1 cursor-pointer"
+              >
+                <RefreshCw size={11} />
+                <span>Sync Now</span>
+              </button>
+            )}
+          </div>
+        )}
 
-            <div
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={stats.completionPercentage}
-              className="h-2 bg-slate-200 rounded-full overflow-hidden"
-            >
-              <div
-                className="h-full bg-indigo-600 transition-all"
-                style={{ width: `${stats.completionPercentage}%` }}
-              />
+        {/* Sync alert when online but queue has items */}
+        {!isOffline && syncQueueCount > 0 && (
+          <div className="bg-blue-50 border-b border-blue-100 px-4 sm:px-6 lg:px-8 py-1 text-xs text-blue-800 font-medium flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <RefreshCw size={12} className="animate-spin text-blue-600" />
+              Syncing {syncQueueCount} pending delivery change{syncQueueCount > 1 ? "s" : ""}...
+            </span>
+            {onSyncNow && (
+              <button
+                onClick={onSyncNow}
+                className="text-blue-700 font-bold hover:underline cursor-pointer text-xs"
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Main Header Row - Full Width */}
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
+          {/* Left: Hamburger menu (mobile) & Page Title */}
+          <div className="flex items-center gap-3 min-w-0">
+            {onToggleSidebar && (
+              <button
+                onClick={onToggleSidebar}
+                aria-label="Toggle navigation menu"
+                className="md:hidden p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+              >
+                <Menu size={20} />
+              </button>
+            )}
+
+            <div>
+              <h1 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight leading-none">
+                {pageTitle}
+              </h1>
+              <span className="text-[11px] font-semibold text-slate-400 hidden sm:inline-block mt-0.5">
+                Driver Console · {driverName}
+              </span>
             </div>
           </div>
 
-          {/* Search */}
-          <div className="relative">
-            <Search
-              size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-              aria-hidden="true"
-            />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search deliveries"
-              aria-label="Search deliveries"
-              className="w-full pl-10 pr-10 py-3 bg-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-            {searchQuery && (
-              <button
-                onClick={handleClearSearch}
-                aria-label="Clear search"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                ×
-              </button>
-            )}
+
+          {/* Right: GPS Pill, Online status, and Driver Avatar/Logout */}
+          <div className="flex items-center gap-2.5 flex-shrink-0">
+            {/* GPS Pill */}
+            <div
+              className={cn(
+                "hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors",
+                currentGps.textClass
+              )}
+              title={currentGps.label}
+            >
+              <span className={cn("w-1.5 h-1.5 rounded-full", currentGps.dotClass)} />
+              <MapPin size={12} className={currentGps.iconClass} />
+              <span>{currentGps.label}</span>
+            </div>
+
+            {/* Online Status Pill */}
+            <div className="hidden xs:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              <span
+                className={cn(
+                  "w-2 h-2 rounded-full",
+                  isOnline ? "bg-emerald-500" : "bg-slate-400"
+                )}
+              />
+              <span className="capitalize">{isOnline ? "Online" : "Offline"}</span>
+            </div>
+
+            {/* Logout Action */}
+            <button
+              onClick={onLogout}
+              aria-label="Logout"
+              title="Logout from driver dashboard"
+              className="min-h-[40px] min-w-[40px] p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition flex items-center justify-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500/30"
+            >
+              <LogOut size={18} />
+            </button>
           </div>
         </div>
       </header>

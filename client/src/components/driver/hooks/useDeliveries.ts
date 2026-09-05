@@ -83,44 +83,46 @@ export const useDeliveries = () => {
   );
 
   // Initialize with mock data
-  useEffect(() => {
-    const initDeliveries = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await api.get('/deliveries/driver');
-        const fetchedDeliveries = response.data
-          .filter(Boolean)
-          .map((d: any) => {
-            let mappedStatus = d.delivery_status || 'pending';
-            if (mappedStatus === 'scheduled' || mappedStatus === 'dispatched') mappedStatus = 'pending';
-            else if (mappedStatus === 'en_route') mappedStatus = 'in_transit';
-            else if (mappedStatus === 'failed' || mappedStatus === 'cancelled' || mappedStatus === 'disputed') mappedStatus = 'delivered'; // fail-safe
+  // Initialize with deliveries
+  const initDeliveries = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.get('/deliveries/driver');
+      const fetchedDeliveries = response.data
+        .filter(Boolean)
+        .map((d: any) => {
+          let mappedStatus = d.delivery_status || 'pending';
+          if (mappedStatus === 'scheduled' || mappedStatus === 'dispatched') mappedStatus = 'pending';
+          else if (mappedStatus === 'en_route') mappedStatus = 'in_transit';
+          else if (mappedStatus === 'failed' || mappedStatus === 'cancelled' || mappedStatus === 'disputed') mappedStatus = 'delivered'; // fail-safe
 
-            return {
-              uuid: d.uuid || d.id || Math.random().toString(),
-              order_number: d.order_number,
-              customer_name: d.customer_name || 'Unknown',
-              customer_phone: d.customer_phone,
-              address: d.customer_address || d.address || 'Unknown Address',
-              scheduled_time: d.scheduled_time || new Date().toISOString(),
-              delivery_status: mappedStatus as Delivery['delivery_status'],
-              earnings: d.earnings || 50,
-              items_count: d.items_count || 1,
-            };
-          });
-        setDeliveries(fetchedDeliveries);
-        localStorage.setItem('deliveries', JSON.stringify(fetchedDeliveries));
-      } catch (err: any) {
-        setError('Failed to load deliveries');
-        console.error('Failed to load deliveries:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initDeliveries();
+          return {
+            uuid: d.uuid || d.id || Math.random().toString(),
+            order_number: d.order_number,
+            customer_name: d.customer_name || 'Unknown',
+            customer_phone: d.customer_phone,
+            address: d.customer_address || d.address || 'Unknown Address',
+            scheduled_time: d.scheduled_time || new Date().toISOString(),
+            delivery_status: mappedStatus as Delivery['delivery_status'],
+            earnings: d.earnings || 50,
+            items_count: d.items_count || 1,
+          };
+        });
+      setDeliveries(fetchedDeliveries);
+      localStorage.setItem('deliveries', JSON.stringify(fetchedDeliveries));
+    } catch (err: any) {
+      setError('Failed to load deliveries');
+      console.error('Failed to load deliveries:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    initDeliveries();
+  }, [initDeliveries]);
+
 
   const submitDeliveryProof = useCallback(
     async (uuid: string, proof: { photoUrl?: string; signature?: string; notes?: string; gps?: any }) => {
@@ -186,5 +188,7 @@ export const useDeliveries = () => {
     updateDeliveryStatus,
     submitDeliveryProof,
     syncQueuedUpdates,
+    refetch: initDeliveries,
   };
 };
+

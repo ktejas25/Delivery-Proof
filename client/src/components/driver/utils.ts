@@ -37,8 +37,14 @@ export const getRouteStats = (deliveries: Delivery[]) => {
 };
 
 export const calculateSLAStatus = (scheduledTimeStr: string): SLAStatus => {
-  const scheduledTime = new Date(scheduledTimeStr).getTime();
+  const scheduledDate = new Date(scheduledTimeStr);
+  const scheduledTime = scheduledDate.getTime();
   const now = Date.now();
+
+  if (isNaN(scheduledTime)) {
+    return { status: 'on-time', minutesRemaining: 999 };
+  }
+
   const diffMinutes = Math.floor((scheduledTime - now) / 60000);
 
   if (diffMinutes < SLA_CONFIG.late_threshold) {
@@ -50,14 +56,41 @@ export const calculateSLAStatus = (scheduledTimeStr: string): SLAStatus => {
   }
 };
 
+export const formatDuration = (minutes: number): string => {
+  const absMin = Math.abs(minutes);
+  if (absMin < 1) return '< 1 min';
+  if (absMin < 60) return `${absMin} min`;
+  const hours = Math.floor(absMin / 60);
+  const remainingMins = absMin % 60;
+  if (hours < 24) {
+    return remainingMins > 0 ? `${hours}h ${String(remainingMins).padStart(2, '0')}m` : `${hours}h`;
+  }
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+  return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+};
+
 export const formatTime = (isoString: string): string => {
-  return new Date(isoString).toLocaleTimeString([], {
-    hour: '2-digit',
+  if (!isoString) return '--:--';
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return isoString;
+  return date.toLocaleTimeString([], {
+    hour: 'numeric',
     minute: '2-digit',
+    hour12: true,
   });
 };
 
 export const formatTimeRemaining = (minutes: number): string => {
-  if (minutes < 0) return `${Math.abs(minutes)}m overdue`;
-  return `${minutes}m remaining`;
+  const duration = formatDuration(minutes);
+  if (minutes < 0) return `${duration} overdue`;
+  return `${duration} remaining`;
 };
+
+export const formatOrderNumber = (orderNumber?: string, fallbackIndex?: number): string => {
+  if (orderNumber) {
+    return orderNumber.replace(/^ORD-?/i, '');
+  }
+  return fallbackIndex !== undefined ? String(fallbackIndex).padStart(2, '0') : '';
+};
+
