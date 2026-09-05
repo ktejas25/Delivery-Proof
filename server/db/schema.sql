@@ -352,7 +352,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     id INT PRIMARY KEY AUTO_INCREMENT,
     business_id INT,
     user_id INT,
-    user_type ENUM('driver', 'manager', 'customer', 'system'),
+    user_type ENUM('driver', 'manager', 'admin', 'analyst', 'support', 'customer', 'system') DEFAULT 'system',
     action VARCHAR(100) NOT NULL,
     entity_type VARCHAR(50),
     entity_id INT,
