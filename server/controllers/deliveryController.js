@@ -121,13 +121,13 @@ const createDelivery = async (req, res) => {
 };
 
 const ALLOWED_STATUS_TRANSITIONS = {
-  scheduled: ["dispatched", "en_route", "cancelled"],
-  pending: ["dispatched", "en_route", "cancelled"],
-  dispatched: ["en_route", "arrived", "failed", "cancelled"],
-  en_route: ["arrived", "failed", "cancelled"],
+  scheduled: ["dispatched", "en_route", "arrived", "delivered", "cancelled"],
+  pending: ["dispatched", "en_route", "arrived", "delivered", "cancelled"],
+  dispatched: ["en_route", "arrived", "delivered", "failed", "cancelled"],
+  en_route: ["arrived", "delivered", "failed", "cancelled"],
   arrived: ["delivered", "failed", "cancelled"],
   delivered: ["disputed"],
-  failed: ["scheduled", "pending", "dispatched", "en_route", "cancelled"],
+  failed: ["scheduled", "pending", "dispatched", "en_route", "arrived", "cancelled"],
   disputed: ["delivered", "cancelled"],
   cancelled: [],
 };
