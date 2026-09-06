@@ -124,20 +124,28 @@ const submitProof = async (req, res) => {
 
       await connection.commit();
 
-      // D. Proactively trigger AI Analysis for Fraud Detection
-      try {
+      // D. Proactively trigger AI Analysis for Fraud Detection (optional microservice)
+      if (process.env.ML_SERVICE_URL) {
         axios
-          .post(`${process.env.ML_SERVICE_URL}/analyze-proof`, {
-            delivery_uuid: uuid,
-            photo_url,
-            signature_url,
-            gps_lat,
-            gps_lng,
-            proof_hash,
-            recorded_at,
-          })
-          .catch((e) => console.error("ML Analysis Trigger failed", e.message));
-      } catch (e) {}
+          .post(
+            `${process.env.ML_SERVICE_URL}/analyze-proof`,
+            {
+              delivery_uuid: uuid,
+              photo_url,
+              signature_url,
+              gps_lat,
+              gps_lng,
+              proof_hash,
+              recorded_at,
+            },
+            { timeout: 3000 }
+          )
+          .catch((e) => {
+            console.warn(
+              `[Optional ML Service] Microservice at ${process.env.ML_SERVICE_URL} not reachable (${e.message}). Skipping background AI fraud analysis.`
+            );
+          });
+      }
 
       res.json({
         message: "Proof submitted successfully",

@@ -7,7 +7,12 @@ const api = axios.create({
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('token');
     if (token && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`;
+        if (typeof (config.headers as any).set === 'function') {
+            (config.headers as any).set('Authorization', `Bearer ${token}`);
+        } else {
+            config.headers.Authorization = `Bearer ${token}`;
+            (config.headers as any)['Authorization'] = `Bearer ${token}`;
+        }
     }
     return config;
 });

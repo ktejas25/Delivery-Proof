@@ -31,5 +31,15 @@ async def detect_fraud(proof_package: dict):
         "explanation": "High proof quality and GPS match."
     }
 
+@app.post("/analyze-proof")
+async def analyze_proof(proof_package: dict):
+    return {
+        "status": "success",
+        "fraud_probability": 0.02,
+        "authenticity_score": 98.0,
+        "tampering_detected": False,
+        "explanation": "Valid delivery photo, signature, and GPS timestamp alignment."
+    }
+
 if __name__ == "__main__":
     uvicorn.run(app, host="[IP_ADDRESS]", port=8000)

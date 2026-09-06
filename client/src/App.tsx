@@ -62,6 +62,14 @@ const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/driver/*"
+            element={
+              <ProtectedRoute>
+                <DriverDashboard />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/" element={<Navigate to="/dashboard" />} />
         </Routes>
       </Router>

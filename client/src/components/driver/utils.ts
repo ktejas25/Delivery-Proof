@@ -94,3 +94,86 @@ export const formatOrderNumber = (orderNumber?: string, fallbackIndex?: number):
   return fallbackIndex !== undefined ? String(fallbackIndex).padStart(2, '0') : '';
 };
 
+export const playDriverSound = (type: 'arrive' | 'complete' | 'alert' | 'click') => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    const now = ctx.currentTime;
+    if (type === 'arrive') {
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+      osc.start(now);
+      osc.stop(now + 0.25);
+    } else if (type === 'complete') {
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.setValueAtTime(659.25, now + 0.1);
+      osc.frequency.setValueAtTime(783.99, now + 0.2);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+      osc.start(now);
+      osc.stop(now + 0.35);
+    } else if (type === 'alert') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(300, now);
+      osc.frequency.setValueAtTime(200, now + 0.1);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+      osc.start(now);
+      osc.stop(now + 0.25);
+    } else {
+      osc.frequency.setValueAtTime(600, now);
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+      osc.start(now);
+      osc.stop(now + 0.08);
+    }
+  } catch {
+    // Ignore audio context autoplay restrictions
+  }
+};
+
+export const triggerHaptic = (pattern: number | number[] = 50) => {
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate(pattern);
+    } catch {
+      // Ignore
+    }
+  }
+};
+
+/**
+ * Calculates a synthetic coordinate for deliveries without stored coordinates,
+ * clustered logically around the driver's GPS or a regional baseline.
+ */
+export const getDeliveryCoordinates = (
+  delivery: Delivery,
+  index: number,
+  baseLat = 37.7749,
+  baseLng = -122.4194
+): [number, number] => {
+  if (delivery.address_lat && delivery.address_lng && delivery.address_lat !== 0) {
+    return [delivery.address_lat, delivery.address_lng];
+  }
+  // Deterministic offset based on UUID char codes
+  let hash = 0;
+  for (let i = 0; i < (delivery.uuid || '').length; i++) {
+    hash = (hash << 5) - hash + delivery.uuid.charCodeAt(i);
+    hash |= 0;
+  }
+  const angle = ((Math.abs(hash) % 360) * Math.PI) / 180;
+  const radius = 0.008 + (index * 0.004); // ~1-3 km
+  const latOffset = Math.sin(angle) * radius;
+  const lngOffset = Math.cos(angle) * radius;
+  return [baseLat + latOffset, baseLng + lngOffset];
+};
+
+

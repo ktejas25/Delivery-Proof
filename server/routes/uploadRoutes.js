@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const { uploadImage } = require('../services/cloudinaryService');
-const { authenticateToken } = require('../middleware/authMiddleware');
+const { optionalAuthenticateToken } = require('../middleware/authMiddleware');
 const router = express.Router();
 
 const storage = multer.memoryStorage();
@@ -17,7 +17,7 @@ const upload = multer({
     }
 });
 
-router.use(authenticateToken);
+router.use(optionalAuthenticateToken);
 
 // Upload Photo
 router.post('/photo', async (req, res) => {

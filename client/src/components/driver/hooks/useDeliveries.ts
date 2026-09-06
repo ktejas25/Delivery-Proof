@@ -107,6 +107,12 @@ export const useDeliveries = () => {
             delivery_status: mappedStatus as Delivery['delivery_status'],
             earnings: d.earnings || 50,
             items_count: d.items_count || 1,
+            address_lat: d.address_lat ? parseFloat(d.address_lat) : undefined,
+            address_lng: d.address_lng ? parseFloat(d.address_lng) : undefined,
+            delivery_instructions: d.delivery_instructions || undefined,
+            priority_level: d.priority_level || 'normal',
+            requires_signature: Boolean(d.requires_signature),
+            requires_photo: Boolean(d.requires_photo),
           };
         });
       setDeliveries(fetchedDeliveries);
@@ -123,6 +129,29 @@ export const useDeliveries = () => {
     initDeliveries();
   }, [initDeliveries]);
 
+  const reportDeliveryIssue = useCallback(
+    async (uuid: string, reason: string, notes?: string) => {
+      // Optimistically update
+      const updated = deliveries.map((d) =>
+        d.uuid === uuid ? ({ ...d, delivery_status: 'failed' as Delivery['delivery_status'] }) : d
+      );
+      setDeliveries(updated);
+      localStorage.setItem('deliveries', JSON.stringify(updated));
+
+      if (!offline) {
+        try {
+          await api.patch(`/deliveries/${uuid}/status`, {
+            status: 'failed',
+            failure_reason: reason,
+            delivery_notes: notes,
+          });
+        } catch (err) {
+          console.error('Failed to report delivery issue:', err);
+        }
+      }
+    },
+    [deliveries, offline]
+  );
 
   const submitDeliveryProof = useCallback(
     async (uuid: string, proof: { photoUrl?: string; signature?: string; notes?: string; gps?: any }) => {
@@ -131,23 +160,18 @@ export const useDeliveries = () => {
       }
 
       try {
-        // 1. Upload photo if exists (base64)
-        let finalPhotoUrl = null;
-        if (proof.photoUrl) {
-          const photoRes = await api.post("/upload/photo", {
-            photo: proof.photoUrl,
-          });
-          finalPhotoUrl = photoRes.data.url;
-        }
+        // 1 & 2. Upload photo and signature concurrently
+        const [photoRes, sigRes] = await Promise.all([
+          proof.photoUrl
+            ? api.post("/upload/photo", { photo: proof.photoUrl })
+            : Promise.resolve(null),
+          proof.signature
+            ? api.post("/upload/signature", { signature: proof.signature })
+            : Promise.resolve(null),
+        ]);
 
-        // 2. Upload signature if exists (base64)
-        let finalSignatureUrl = null;
-        if (proof.signature) {
-          const sigRes = await api.post("/upload/signature", {
-            signature: proof.signature,
-          });
-          finalSignatureUrl = sigRes.data.url;
-        }
+        const finalPhotoUrl = photoRes?.data?.url || null;
+        const finalSignatureUrl = sigRes?.data?.url || null;
 
         // 3. Submit proof artifacts to delivery
         // The backend status will be automatically set to 'delivered' by this endpoint
@@ -186,6 +210,7 @@ export const useDeliveries = () => {
     error,
     offline,
     updateDeliveryStatus,
+    reportDeliveryIssue,
     submitDeliveryProof,
     syncQueuedUpdates,
     refetch: initDeliveries,

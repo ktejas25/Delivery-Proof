@@ -10,7 +10,22 @@ export interface Delivery {
   delivery_status: DeliveryStatus;
   earnings?: number;
   items_count?: number;
+  address_lat?: number;
+  address_lng?: number;
+  delivery_instructions?: string;
+  priority_level?: 'low' | 'normal' | 'high' | 'urgent';
+  requires_signature?: boolean;
+  requires_photo?: boolean;
 }
+
+export type DeliveryIssueType =
+  | 'customer_unavailable'
+  | 'gate_access_denied'
+  | 'invalid_address'
+  | 'damaged_package'
+  | 'unsafe_location'
+  | 'other';
+
 
 export interface GPSPosition {
   lat: number;
