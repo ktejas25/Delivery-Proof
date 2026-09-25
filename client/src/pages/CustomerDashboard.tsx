@@ -497,13 +497,18 @@ const CustomerDashboard = () => {
           <OrderDetailsModal
             delivery={selectedDelivery}
             onClose={() => setSelectedDelivery(null)}
+            onAddressUpdated={fetchData}
+            savedAddresses={addresses}
           />
         )}
 
         {isAddressModalOpen && (
           <AddressModal
             isOpen={isAddressModalOpen}
-            onClose={() => setIsAddressModalOpen(false)}
+            onClose={() => {
+              setIsAddressModalOpen(false);
+              setEditingAddress(null);
+            }}
             onSuccess={fetchData}
             address={editingAddress}
           />

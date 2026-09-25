@@ -69,10 +69,16 @@ const register = async (req, res) => {
       ],
     );
 
-    // Save mapping in users or customer doesn't have an explicit user_id yet!
-    // We should link users and customers.
-    // The prompt says "Allow customers to authenticate using the same authentication system"
-    // So user_type='customer'. We will find the customer record by email.
+    // Save initial address into customer_addresses as default Primary Address
+    await connection.query(
+      `INSERT INTO customer_addresses (customer_id, label, address, location, is_default)
+       VALUES (?, 'Primary Address', ?, ST_GeomFromText(?, 4326), 1)`,
+      [
+        customerRes.insertId,
+        address,
+        `POINT(${targetLat} ${targetLng})`,
+      ]
+    );
 
     await connection.commit();
     res.status(201).json({ message: "Registration successful" });
@@ -394,46 +400,79 @@ const submitDispute = async (req, res) => {
   }
 };
 
+// Helper to reliably get customer_id
+const resolveCustomerId = async (req) => {
+  let customer_id = req.user?.customer_id;
+  if (!customer_id && req.user?.id) {
+    const [users] = await pool.query("SELECT email FROM users WHERE id = ?", [req.user.id]);
+    if (users[0]?.email) {
+      const [customers] = await pool.query("SELECT id FROM customers WHERE email = ?", [users[0].email]);
+      customer_id = customers[0]?.id;
+    }
+  }
+  return customer_id;
+};
+
 // ==========================================
 // Addresses
 // ==========================================
 
 const getAddresses = async (req, res) => {
-  let customer_id = req.user.customer_id;
   try {
+    const customer_id = await resolveCustomerId(req);
     if (!customer_id) {
-       const [users] = await pool.query("SELECT email FROM users WHERE id = ?", [req.user.id]);
-       if (users[0]) {
-         const [customers] = await pool.query("SELECT id FROM customers WHERE email = ?", [users[0].email]);
-         customer_id = customers[0]?.id;
-       }
+      return res.json([]);
     }
-    const [rows] = await pool.query("CALL sp_get_customer_addresses(?)", [
-      customer_id,
-    ]);
-    res.json(rows[0] || []);
+
+    let [rows] = await pool.query("CALL sp_get_customer_addresses(?)", [customer_id]);
+    let addressList = rows[0] || [];
+
+    // If no saved addresses exist yet in customer_addresses, automatically sync the existing address from customers table
+    if (addressList.length === 0) {
+      const [custRows] = await pool.query(
+        "SELECT address, ST_X(location) as lat, ST_Y(location) as lng FROM customers WHERE id = ?",
+        [customer_id]
+      );
+      if (custRows.length > 0 && custRows[0].address) {
+        const cust = custRows[0];
+        const lat = cust.lat || DEFAULT_COORDINATES.lat;
+        const lng = cust.lng || DEFAULT_COORDINATES.lng;
+
+        await pool.query(
+          `INSERT INTO customer_addresses (customer_id, label, address, location, is_default)
+           VALUES (?, 'Primary Address', ?, ST_GeomFromText(?, 4326), 1)`,
+          [customer_id, cust.address, `POINT(${lat} ${lng})`]
+        );
+
+        [rows] = await pool.query("CALL sp_get_customer_addresses(?)", [customer_id]);
+        addressList = rows[0] || [];
+      }
+    }
+
+    res.json(addressList);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
 const createAddress = async (req, res) => {
-  let customer_id = req.user.customer_id;
-  if (!customer_id) {
-     const [users] = await pool.query("SELECT email FROM users WHERE id = ?", [req.user.id]);
-     if (users[0]) {
-       const [customers] = await pool.query("SELECT id FROM customers WHERE email = ?", [users[0].email]);
-       customer_id = customers[0]?.id;
-     }
-  }
   const { label, address, lat, lng, is_default } = req.body;
   try {
+    const customer_id = await resolveCustomerId(req);
+    if (!customer_id) {
+      return res.status(404).json({ message: "Customer profile not found" });
+    }
+
     let finalLat = lat;
     let finalLng = lng;
     if (!finalLat || !finalLng || isNaN(finalLat) || isNaN(finalLng)) {
       const geo = await geocodeAddress(address);
       finalLat = geo?.lat || DEFAULT_COORDINATES.lat;
       finalLng = geo?.lng || DEFAULT_COORDINATES.lng;
+    }
+
+    if (is_default) {
+      await pool.query("UPDATE customer_addresses SET is_default = 0 WHERE customer_id = ?", [customer_id]);
     }
 
     await pool.query(
@@ -444,10 +483,18 @@ const createAddress = async (req, res) => {
         label,
         address,
         `POINT(${finalLat} ${finalLng})`,
-        is_default || 0,
+        is_default ? 1 : 0,
       ],
     );
-    res.status(201).json({ message: "Address added" });
+
+    if (is_default) {
+      await pool.query(
+        "UPDATE customers SET address = ?, location = ST_GeomFromText(?, 4326) WHERE id = ?",
+        [address, `POINT(${finalLat} ${finalLng})`, customer_id]
+      );
+    }
+
+    res.status(201).json({ message: "Address added successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -455,14 +502,45 @@ const createAddress = async (req, res) => {
 
 const updateAddress = async (req, res) => {
   const { id } = req.params;
-  const customer_id = req.user.customer_id;
-  const { label, address, is_default } = req.body;
+  const { label, address, is_default, lat, lng } = req.body;
   try {
-    await pool.query(
-      "UPDATE customer_addresses SET label = ?, address = ?, is_default = ? WHERE id = ? AND customer_id = ?",
-      [label, address, is_default || 0, id, customer_id],
+    const customer_id = await resolveCustomerId(req);
+    if (!customer_id) {
+      return res.status(404).json({ message: "Customer profile not found" });
+    }
+
+    let finalLat = lat;
+    let finalLng = lng;
+    if (!finalLat || !finalLng || isNaN(finalLat) || isNaN(finalLng)) {
+      const geo = await geocodeAddress(address);
+      finalLat = geo?.lat || DEFAULT_COORDINATES.lat;
+      finalLng = geo?.lng || DEFAULT_COORDINATES.lng;
+    }
+
+    if (is_default) {
+      await pool.query("UPDATE customer_addresses SET is_default = 0 WHERE customer_id = ?", [customer_id]);
+    }
+
+    const [result] = await pool.query(
+      `UPDATE customer_addresses 
+       SET label = ?, address = ?, location = ST_GeomFromText(?, 4326), is_default = ? 
+       WHERE id = ? AND customer_id = ?`,
+      [label, address, `POINT(${finalLat} ${finalLng})`, is_default ? 1 : 0, id, customer_id],
     );
-    res.json({ message: "Address updated" });
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Address not found or permission denied" });
+    }
+
+    // If default or if this is the only address, also sync with customers table
+    if (is_default) {
+      await pool.query(
+        "UPDATE customers SET address = ?, location = ST_GeomFromText(?, 4326) WHERE id = ?",
+        [address, `POINT(${finalLat} ${finalLng})`, customer_id]
+      );
+    }
+
+    res.json({ message: "Address updated successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -470,28 +548,78 @@ const updateAddress = async (req, res) => {
 
 const deleteAddress = async (req, res) => {
   const { id } = req.params;
-  const customer_id = req.user.customer_id;
   try {
+    const customer_id = await resolveCustomerId(req);
+    if (!customer_id) {
+      return res.status(404).json({ message: "Customer profile not found" });
+    }
+
     await pool.query(
       "DELETE FROM customer_addresses WHERE id = ? AND customer_id = ?",
       [id, customer_id],
     );
-    res.json({ message: "Address deleted" });
+    res.json({ message: "Address deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+const updateDeliveryAddress = async (req, res) => {
+  const { uuid } = req.params;
+  const { address, delivery_notes } = req.body;
+  try {
+    const customer_id = await resolveCustomerId(req);
+    if (!customer_id) {
+      return res.status(404).json({ message: "Customer profile not found" });
+    }
+
+    if (!address || !address.trim()) {
+      return res.status(400).json({ message: "Address cannot be empty" });
+    }
+
+    const [deliveries] = await pool.query(
+      "SELECT id, delivery_status FROM deliveries WHERE uuid = ? AND customer_id = ?",
+      [uuid, customer_id]
+    );
+
+    if (deliveries.length === 0) {
+      return res.status(404).json({ message: "Delivery not found" });
+    }
+
+    const delivery = deliveries[0];
+    const modifiableStatuses = ["pending", "scheduled"];
+    if (!modifiableStatuses.includes(delivery.delivery_status)) {
+      return res.status(400).json({
+        message: `Address can only be changed before delivery is dispatched (current status: ${delivery.delivery_status}).`
+      });
+    }
+
+    const geo = await geocodeAddress(address);
+    const targetLat = geo?.lat || DEFAULT_COORDINATES.lat;
+    const targetLng = geo?.lng || DEFAULT_COORDINATES.lng;
+
+    // Update customer address coordinates so route updates
+    await pool.query(
+      "UPDATE customers SET address = ?, location = ST_GeomFromText(?, 4326) WHERE id = ?",
+      [address, `POINT(${targetLat} ${targetLng})`, customer_id]
+    );
+
+    if (delivery_notes !== undefined) {
+      await pool.query(
+        "UPDATE deliveries SET delivery_notes = ? WHERE id = ?",
+        [delivery_notes, delivery.id]
+      );
+    }
+
+    res.json({ message: "Delivery address updated successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
 const getUpcomingOrdersCount = async (req, res) => {
-  let customer_id = req.user.customer_id;
   try {
-    if (!customer_id) {
-       const [users] = await pool.query("SELECT email FROM users WHERE id = ?", [req.user.id]);
-       if (users[0]) {
-         const [customers] = await pool.query("SELECT id FROM customers WHERE email = ?", [users[0].email]);
-         customer_id = customers[0]?.id;
-       }
-    }
+    const customer_id = await resolveCustomerId(req);
     if (!customer_id) return res.json({ count: 0 });
 
     const [rows] = await pool.query(
@@ -520,5 +648,6 @@ module.exports = {
   createAddress,
   updateAddress,
   deleteAddress,
+  updateDeliveryAddress,
   getUpcomingOrdersCount,
 };

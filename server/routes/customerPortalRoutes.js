@@ -23,6 +23,7 @@ router.get("/upcoming-orders-count", customerPortalCtrl.getUpcomingOrdersCount);
 router.get("/deliveries", customerPortalCtrl.getDeliveries);
 router.get("/delivery/:uuid", customerPortalCtrl.getDeliveryDetails);
 router.get("/delivery/:uuid/track", customerPortalCtrl.trackDelivery);
+router.put("/delivery/:uuid/address", customerPortalCtrl.updateDeliveryAddress);
 
 // Driver Ratings
 router.post("/rate-driver", customerPortalCtrl.rateDriver);
