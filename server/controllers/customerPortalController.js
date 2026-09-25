@@ -4,6 +4,7 @@ const {
   comparePassword,
   generateToken,
 } = require("../utils/authUtils");
+const { geocodeAddress, DEFAULT_COORDINATES } = require("../utils/geocoding");
 
 // ==========================================
 // Authentication APIs
@@ -48,13 +49,24 @@ const register = async (req, res) => {
     );
     const userId = userRes.insertId;
 
-    // Insert customer
+    // Insert customer with geocoded coordinates
     const customerUuid = uuidv4();
-    // Use POINT(0,0) as default if geocoding is missing
+    const geo = await geocodeAddress(address);
+    const targetLat = geo?.lat || DEFAULT_COORDINATES.lat;
+    const targetLng = geo?.lng || DEFAULT_COORDINATES.lng;
+
     const [customerRes] = await connection.query(
       `INSERT INTO customers (uuid, business_id, name, phone, email, address, location)
-       VALUES (?, ?, ?, ?, ?, ?, ST_GeomFromText('POINT(0 0)', 4326))`,
-      [customerUuid, business_id, name, phone || "", email, address],
+       VALUES (?, ?, ?, ?, ?, ?, ST_GeomFromText(?, 4326))`,
+      [
+        customerUuid,
+        business_id,
+        name,
+        phone || "",
+        email,
+        address,
+        `POINT(${targetLat} ${targetLng})`,
+      ],
     );
 
     // Save mapping in users or customer doesn't have an explicit user_id yet!
@@ -416,6 +428,14 @@ const createAddress = async (req, res) => {
   }
   const { label, address, lat, lng, is_default } = req.body;
   try {
+    let finalLat = lat;
+    let finalLng = lng;
+    if (!finalLat || !finalLng || isNaN(finalLat) || isNaN(finalLng)) {
+      const geo = await geocodeAddress(address);
+      finalLat = geo?.lat || DEFAULT_COORDINATES.lat;
+      finalLng = geo?.lng || DEFAULT_COORDINATES.lng;
+    }
+
     await pool.query(
       `INSERT INTO customer_addresses (customer_id, label, address, location, is_default)
        VALUES (?, ?, ?, ST_GeomFromText(?, 4326), ?)`,
@@ -423,7 +443,7 @@ const createAddress = async (req, res) => {
         customer_id,
         label,
         address,
-        `POINT(${lat || 0} ${lng || 0})`,
+        `POINT(${finalLat} ${finalLng})`,
         is_default || 0,
       ],
     );

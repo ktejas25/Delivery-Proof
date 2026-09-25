@@ -633,6 +633,8 @@ const DriverDashboard: React.FC = () => {
                                   key={delivery.uuid}
                                   delivery={delivery}
                                   routeIndex={idx + 2}
+                                  isSelected={selectedMapDeliveryUuid === delivery.uuid}
+                                  onSelect={(d) => setSelectedMapDeliveryUuid(d.uuid)}
                                   onStatusChange={handleStatusChange}
                                   onCall={handleCall}
                                   onNavigate={handleNavigate}
@@ -727,6 +729,11 @@ const DriverDashboard: React.FC = () => {
                                 key={delivery.uuid}
                                 delivery={delivery}
                                 routeIndex={idx + 2}
+                                isSelected={selectedMapDeliveryUuid === delivery.uuid}
+                                onSelect={(d) => {
+                                  setSelectedMapDeliveryUuid(d.uuid);
+                                  setViewMode("split");
+                                }}
                                 onStatusChange={handleStatusChange}
                                 onCall={handleCall}
                                 onNavigate={handleNavigate}

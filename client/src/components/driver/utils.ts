@@ -150,17 +150,19 @@ export const triggerHaptic = (pattern: number | number[] = 50) => {
   }
 };
 
+import { DEFAULT_REGIONAL_CENTER } from '../../services/geocodingService';
+
 /**
- * Calculates a synthetic coordinate for deliveries without stored coordinates,
- * clustered logically around the driver's GPS or a regional baseline.
+ * Calculates coordinates for deliveries without stored coordinates,
+ * clustered logically around regional baseline.
  */
 export const getDeliveryCoordinates = (
   delivery: Delivery,
   index: number,
-  baseLat = 37.7749,
-  baseLng = -122.4194
+  baseLat = DEFAULT_REGIONAL_CENTER[0],
+  baseLng = DEFAULT_REGIONAL_CENTER[1]
 ): [number, number] => {
-  if (delivery.address_lat && delivery.address_lng && delivery.address_lat !== 0) {
+  if (delivery.address_lat && delivery.address_lng && delivery.address_lat !== 0 && !isNaN(delivery.address_lat)) {
     return [delivery.address_lat, delivery.address_lng];
   }
   // Deterministic offset based on UUID char codes

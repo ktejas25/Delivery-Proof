@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from "react-
 import L from 'leaflet';
 import "../lib/leaflet-fix";
 import useDeliveryTracking from "../hooks/useDeliveryTracking";
+import { geocodeAddress } from "../services/geocodingService";
 
 interface TrackingMapProps {
   deliveryUuid: string;
@@ -49,28 +50,53 @@ const RecenterMap: React.FC<{ location: any; destination: any }> = ({ location, 
 
 const TrackingMap: React.FC<TrackingMapProps> = ({
   deliveryUuid,
+  initialData,
 }) => {
   const { location, destination, status, connected } = useDeliveryTracking(deliveryUuid);
+  const [geocodedDest, setGeocodedDest] = React.useState<{ lat: number; lng: number } | null>(() => {
+    if (initialData?.address_lat && initialData?.address_lng) {
+      return { lat: parseFloat(initialData.address_lat), lng: parseFloat(initialData.address_lng) };
+    }
+    return null;
+  });
+
+  React.useEffect(() => {
+    if (isValid(destination)) return;
+    if (initialData?.address_lat && initialData?.address_lng) {
+      setGeocodedDest({ lat: parseFloat(initialData.address_lat), lng: parseFloat(initialData.address_lng) });
+      return;
+    }
+    const addr = initialData?.customer_address || initialData?.address;
+    if (addr) {
+      geocodeAddress(addr).then((coords) => {
+        if (coords) {
+          setGeocodedDest({ lat: coords[0], lng: coords[1] });
+        }
+      });
+    }
+  }, [destination, initialData]);
+
+  const effectiveDestination = isValid(destination) ? destination : geocodedDest;
 
   const polylinePositions = useMemo(() => {
-    if (isValid(location) && isValid(destination)) {
-      return [[location.lat, location.lng], [destination.lat, destination.lng]] as [number, number][];
+    if (isValid(location) && isValid(effectiveDestination)) {
+      return [[location.lat, location.lng], [effectiveDestination.lat, effectiveDestination.lng]] as [number, number][];
     }
     return [];
-  }, [location, destination]);
+  }, [location, effectiveDestination]);
 
-  if (!isValid(location) && !isValid(destination)) {
+  if (!isValid(location) && !isValid(effectiveDestination)) {
     return (
       <div className="h-full w-full bg-slate-50 flex flex-col items-center justify-center gap-4">
         <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Initializing Satellites...</p>
+        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Locating Customer Address...</p>
       </div>
     );
   }
 
   const mapCenter: [number, number] = isValid(location) 
     ? [location.lat, location.lng] 
-    : [destination.lat, destination.lng];
+    : [effectiveDestination.lat, effectiveDestination.lng];
 
   return (
     <div className="relative h-full w-full">
@@ -106,9 +132,9 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
         )}
 
         {/* Destination Marker */}
-        {isValid(destination) && (
+        {isValid(effectiveDestination) && (
           <Marker
-            position={[destination.lat, destination.lng]}
+            position={[effectiveDestination.lat, effectiveDestination.lng]}
             icon={destinationIcon}
           >
             <Popup className="custom-popup">
@@ -117,6 +143,9 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                   Destination
                 </p>
                 <p className="text-sm font-bold text-gray-900">Delivery Point</p>
+                {initialData?.address && (
+                  <p className="text-xs text-gray-600 mt-1 font-medium">{initialData.address}</p>
+                )}
               </div>
             </Popup>
           </Marker>
@@ -138,7 +167,7 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
           </Marker>
         )}
 
-        <RecenterMap location={location} destination={destination} />
+        <RecenterMap location={location} destination={effectiveDestination} />
       </MapContainer>
       
       {/* Bottom Info Overlay */}

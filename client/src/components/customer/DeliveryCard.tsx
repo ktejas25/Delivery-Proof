@@ -126,10 +126,13 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({
 
         {/* Address & Items */}
         <div className="space-y-4 mb-8">
-          <div className="flex items-start gap-4">
+          <div className="flex items-start gap-3">
             <div className="mt-1 flex-shrink-0">
-              <MapPin className="text-red-400" size={16} />
+              <MapPin className="text-red-500" size={16} />
             </div>
+            <p className="text-xs sm:text-sm font-semibold text-gray-700 leading-snug line-clamp-2">
+              {delivery.customer_address || delivery.address || "Address on file"}
+            </p>
           </div>
 
           <div className="flex items-center gap-4">

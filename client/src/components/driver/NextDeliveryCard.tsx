@@ -3,7 +3,6 @@ import {
   Phone,
   Navigation,
   MapPin,
-  ExternalLink,
   Clock,
   AlertCircle,
   Package,
@@ -30,6 +29,7 @@ import {
 } from "./utils";
 import { ACTION_BUTTON_CONFIG } from "./config";
 import toast from "react-hot-toast";
+import DeliveryAddressMap from "./DeliveryAddressMap";
 
 interface NextDeliveryCardProps {
   delivery: Delivery;
@@ -235,28 +235,17 @@ const NextDeliveryCard: React.FC<NextDeliveryCardProps> = React.memo(
           </div>
         )}
 
-        {/* Compact Map Preview */}
-        <div className="relative h-[180px] sm:h-[220px] bg-slate-100 overflow-hidden group">
-          <iframe
-            title={`map-${delivery.uuid}`}
-            width="100%"
-            height="100%"
-            frameBorder="0"
-            loading="lazy"
-            src={`https://maps.google.com/maps?q=${encodeURIComponent(delivery.address)}&z=15&output=embed`}
-            className="w-full h-full border-0"
+        {/* Interactive Customer Address Map */}
+        <div className="p-3 sm:p-4 bg-slate-50/50">
+          <DeliveryAddressMap
+            address={delivery.address}
+            lat={delivery.address_lat}
+            lng={delivery.address_lng}
+            customerName={delivery.customer_name}
+            orderNumber={orderDisplay}
+            onNavigate={() => onNavigate(delivery)}
+            heightClass="h-[180px] sm:h-[220px]"
           />
-
-          {/* Floating Navigate overlay button on map */}
-          <button
-            onClick={() => onNavigate(delivery)}
-            aria-label="Open in Navigation App"
-            className="absolute bottom-2.5 right-2.5 bg-white/95 hover:bg-white text-slate-800 text-xs font-bold py-1.5 px-3 rounded-xl shadow-md border border-slate-200/80 flex items-center gap-1.5 transition-all cursor-pointer backdrop-blur-xs active:scale-95"
-          >
-            <Navigation size={13} className="text-blue-600" />
-            <span>Open Maps</span>
-            <ExternalLink size={11} className="text-slate-400" />
-          </button>
         </div>
 
         {/* Actions & SLA Section */}

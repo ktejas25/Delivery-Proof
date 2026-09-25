@@ -1,5 +1,6 @@
 const pool = require("../config/database");
 const { hashPassword } = require("../utils/authUtils");
+const { geocodeAddress, DEFAULT_COORDINATES } = require("../utils/geocoding");
 
 const getCustomers = async (req, res) => {
   const { business_id } = req.user;
@@ -83,10 +84,20 @@ const createCustomer = async (req, res) => {
       userId = userResult.insertId;
     }
 
+    let finalLat = lat;
+    let finalLng = lng;
+    if (!finalLat || !finalLng || isNaN(finalLat) || isNaN(finalLng)) {
+      const geo = await geocodeAddress(address);
+      if (geo) {
+        finalLat = geo.lat;
+        finalLng = geo.lng;
+      }
+    }
+
     const locationValue =
-      lat && lng
-        ? `ST_GeomFromText('POINT(${lat} ${lng})', 4326)`
-        : `ST_GeomFromText('POINT(0 0)', 4326)`;
+      finalLat && finalLng
+        ? `ST_GeomFromText('POINT(${finalLat} ${finalLng})', 4326)`
+        : `ST_GeomFromText('POINT(${DEFAULT_COORDINATES.lat} ${DEFAULT_COORDINATES.lng})', 4326)`;
 
     await connection.query(
       `INSERT INTO customers (uuid, business_id, user_id, name, email, phone, address, delivery_instructions, preferred_language_code, location)
@@ -187,9 +198,19 @@ const updateCustomer = async (req, res) => {
     }
 
     // 3. Update customer table
+    let finalLat = lat;
+    let finalLng = lng;
+    if (address && (finalLat === undefined || finalLng === undefined)) {
+      const geo = await geocodeAddress(address);
+      if (geo) {
+        finalLat = geo.lat;
+        finalLng = geo.lng;
+      }
+    }
+
     const locationPart =
-      lat !== undefined && lng !== undefined
-        ? `location = ST_GeomFromText('POINT(${lat} ${lng})', 4326),`
+      finalLat !== undefined && finalLng !== undefined
+        ? `location = ST_GeomFromText('POINT(${finalLat} ${finalLng})', 4326),`
         : "";
 
     const updateSql = `UPDATE customers SET 

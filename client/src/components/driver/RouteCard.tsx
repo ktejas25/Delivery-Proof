@@ -27,6 +27,8 @@ interface RouteCardProps {
   delivery: Delivery;
   routeIndex: number;
   isNext?: boolean;
+  isSelected?: boolean;
+  onSelect?: (delivery: Delivery) => void;
   onStatusChange: (uuid: string, status: Delivery["delivery_status"]) => void;
   onCall: (delivery: Delivery) => void;
   onNavigate: (delivery: Delivery) => void;
@@ -41,6 +43,8 @@ const RouteCard: React.FC<RouteCardProps> = React.memo(
     delivery,
     routeIndex,
     isNext = false,
+    isSelected = false,
+    onSelect,
     onStatusChange,
     onCall,
     onNavigate,
@@ -83,12 +87,17 @@ const RouteCard: React.FC<RouteCardProps> = React.memo(
       <div
         className={cn(
           "bg-white rounded-2xl border transition-all p-3.5 sm:p-4 shadow-2xs hover:shadow-xs flex flex-col justify-between",
-          isNext ? "border-blue-300 bg-blue-50/20" : "border-slate-200"
+          isNext ? "border-blue-300 bg-blue-50/20" : "border-slate-200",
+          isSelected && "ring-2 ring-blue-500 border-blue-500 bg-blue-50/10"
         )}
       >
         <div>
           {/* Top Header: Stop Number + Order ID + Customer Name + Status */}
-          <div className="flex items-start justify-between gap-2.5 mb-2">
+          <div
+            onClick={() => onSelect?.(delivery)}
+            className="flex items-start justify-between gap-2.5 mb-2 cursor-pointer"
+            title="Click to view customer address on map"
+          >
             <div className="flex items-center gap-2.5 min-w-0">
               {/* Route Index Avatar */}
               <div
@@ -131,8 +140,12 @@ const RouteCard: React.FC<RouteCardProps> = React.memo(
           </div>
 
           {/* Address Row */}
-          <div className="flex items-start gap-1.5 mb-2 text-xs text-slate-600 bg-slate-50/60 p-2 rounded-xl">
-            <MapPin size={14} className="text-slate-400 flex-shrink-0 mt-0.5" />
+          <div
+            onClick={() => onSelect?.(delivery)}
+            className="flex items-start gap-1.5 mb-2 text-xs text-slate-600 bg-slate-50/60 hover:bg-blue-50/60 transition p-2 rounded-xl cursor-pointer"
+            title="Click to view and center customer address on map"
+          >
+            <MapPin size={14} className="text-blue-500 flex-shrink-0 mt-0.5" />
             <p className="line-clamp-2 leading-relaxed font-medium">
               {delivery.address}
             </p>

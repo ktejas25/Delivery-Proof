@@ -24,7 +24,13 @@ import {
   Maximize2,
   CheckCircle2,
   Clock,
+  MapPin,
 } from "lucide-react";
+import {
+  geocodeAddress,
+  getBaselineFromDeliveries,
+  calculateDistanceKm,
+} from "../../services/geocodingService";
 
 interface DriverRouteMapProps {
   deliveries: Delivery[];
@@ -138,18 +144,74 @@ const DriverRouteMap: React.FC<DriverRouteMapProps> = ({
   const [zoomTarget, setZoomTarget] = useState<number>(15);
   const [activePreviewDelivery, setActivePreviewDelivery] = useState<Delivery | null>(null);
 
-  // Baseline coordinates if GPS is absent (defaults to San Francisco or first delivery)
-  const defaultBaseLat = driverPosition?.lat || 37.7749;
-  const defaultBaseLng = driverPosition?.lng || -122.4194;
+  const [dynamicCoords, setDynamicCoords] = useState<Record<string, [number, number]>>({});
 
-  // Compute geocoded stops with coordinates
+  // Dynamic geocoding for any delivery stops without coordinates
+  useEffect(() => {
+    let isMounted = true;
+    deliveries.forEach((delivery) => {
+      const hasCoords =
+        delivery.address_lat &&
+        delivery.address_lng &&
+        delivery.address_lat !== 0 &&
+        delivery.address_lng !== 0 &&
+        !isNaN(delivery.address_lat);
+
+      if (!hasCoords && delivery.address && !dynamicCoords[delivery.uuid]) {
+        geocodeAddress(delivery.address).then((resolved) => {
+          if (isMounted && resolved) {
+            setDynamicCoords((prev) => ({
+              ...prev,
+              [delivery.uuid]: resolved,
+            }));
+          }
+        });
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [deliveries, dynamicCoords]);
+
+  // Baseline coordinates derived from actual customer deliveries, with regional default
+  const defaultBaseline = useMemo(() => {
+    return getBaselineFromDeliveries(deliveries);
+  }, [deliveries]);
+
+  // Compute stops with customer address coordinates
   const stopsWithCoords = useMemo(() => {
     return deliveries.map((delivery, index) => {
+      if (
+        delivery.address_lat &&
+        delivery.address_lng &&
+        delivery.address_lat !== 0 &&
+        delivery.address_lng !== 0 &&
+        !isNaN(delivery.address_lat)
+      ) {
+        return {
+          delivery,
+          stopIndex: index + 1,
+          lat: delivery.address_lat,
+          lng: delivery.address_lng,
+        };
+      }
+
+      if (dynamicCoords[delivery.uuid]) {
+        const [dynLat, dynLng] = dynamicCoords[delivery.uuid];
+        return {
+          delivery,
+          stopIndex: index + 1,
+          lat: dynLat,
+          lng: dynLng,
+        };
+      }
+
       const [lat, lng] = getDeliveryCoordinates(
         delivery,
         index,
-        defaultBaseLat,
-        defaultBaseLng
+        defaultBaseline[0],
+        defaultBaseline[1]
       );
       return {
         delivery,
@@ -158,36 +220,72 @@ const DriverRouteMap: React.FC<DriverRouteMapProps> = ({
         lng,
       };
     });
-  }, [deliveries, defaultBaseLat, defaultBaseLng]);
+  }, [deliveries, dynamicCoords, defaultBaseline]);
 
-  // Overall bounds encompassing driver & stops
+  // Overall bounds encompassing customer stops (+ driver if nearby)
   const routeBounds = useMemo(() => {
     const points: [number, number][] = [];
-    if (driverPosition?.lat && driverPosition?.lng) {
-      points.push([driverPosition.lat, driverPosition.lng]);
-    }
     stopsWithCoords.forEach((s) => points.push([s.lat, s.lng]));
+
+    // Include driver position if within reasonable distance (150km) of stops
+    if (driverPosition?.lat && driverPosition?.lng) {
+      if (points.length === 0) {
+        points.push([driverPosition.lat, driverPosition.lng]);
+      } else {
+        const distKm = calculateDistanceKm(
+          driverPosition.lat,
+          driverPosition.lng,
+          points[0][0],
+          points[0][1]
+        );
+        if (distKm <= 150) {
+          points.push([driverPosition.lat, driverPosition.lng]);
+        }
+      }
+    }
+
     if (points.length === 0) return null;
     return L.latLngBounds(points);
   }, [stopsWithCoords, driverPosition]);
 
-  // Route Polyline positions: driver -> stop 1 -> stop 2 ...
+  // Route Polyline positions: driver (if nearby) -> stop 1 -> stop 2 ...
   const polylineCoords = useMemo(() => {
     const coords: [number, number][] = [];
     if (driverPosition?.lat && driverPosition?.lng) {
-      coords.push([driverPosition.lat, driverPosition.lng]);
+      if (stopsWithCoords.length === 0) {
+        coords.push([driverPosition.lat, driverPosition.lng]);
+      } else {
+        const distKm = calculateDistanceKm(
+          driverPosition.lat,
+          driverPosition.lng,
+          stopsWithCoords[0].lat,
+          stopsWithCoords[0].lng
+        );
+        if (distKm <= 150) {
+          coords.push([driverPosition.lat, driverPosition.lng]);
+        }
+      }
     }
     stopsWithCoords.forEach((s) => coords.push([s.lat, s.lng]));
     return coords;
   }, [stopsWithCoords, driverPosition]);
 
-  // Keep active preview delivery synchronized
+  // Keep active preview delivery synchronized and focus map to customer address
   useEffect(() => {
     if (selectedDeliveryUuid) {
       const match = deliveries.find((d) => d.uuid === selectedDeliveryUuid);
-      if (match) setActivePreviewDelivery(match);
+      if (match) {
+        setActivePreviewDelivery(match);
+        const stopCoord = stopsWithCoords.find(
+          (s) => s.delivery.uuid === selectedDeliveryUuid
+        );
+        if (stopCoord) {
+          setCenterTarget([stopCoord.lat, stopCoord.lng]);
+          setZoomTarget(16);
+        }
+      }
     }
-  }, [selectedDeliveryUuid, deliveries]);
+  }, [selectedDeliveryUuid, deliveries, stopsWithCoords]);
 
   // Handlers for quick view controls
   const handleFitRoute = () => {
@@ -201,6 +299,21 @@ const DriverRouteMap: React.FC<DriverRouteMapProps> = ({
     }
   };
 
+  const handleCenterActiveStop = () => {
+    if (activePreviewDelivery) {
+      const stop = stopsWithCoords.find(
+        (s) => s.delivery.uuid === activePreviewDelivery.uuid
+      );
+      if (stop) {
+        setCenterTarget([stop.lat, stop.lng]);
+        setZoomTarget(16);
+      }
+    } else if (stopsWithCoords.length > 0) {
+      setCenterTarget([stopsWithCoords[0].lat, stopsWithCoords[0].lng]);
+      setZoomTarget(16);
+    }
+  };
+
   return (
     <div className={`relative w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100 ${heightClass}`}>
       <MapContainer
@@ -208,7 +321,7 @@ const DriverRouteMap: React.FC<DriverRouteMapProps> = ({
         center={
           driverPosition?.lat
             ? [driverPosition.lat, driverPosition.lng]
-            : [defaultBaseLat, defaultBaseLng]
+            : [defaultBaseline[0], defaultBaseline[1]]
         }
         zoom={13}
         scrollWheelZoom={true}
@@ -349,6 +462,13 @@ const DriverRouteMap: React.FC<DriverRouteMapProps> = ({
 
       {/* Floating Map Controls (Top Right) */}
       <div className="absolute top-3 right-3 z-[400] flex flex-col gap-1.5 bg-white/95 backdrop-blur-xs p-1.5 rounded-2xl shadow-md border border-slate-200/80">
+        <button
+          onClick={handleCenterActiveStop}
+          title="Focus on customer address"
+          className="p-2 text-slate-700 hover:text-red-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+        >
+          <MapPin size={16} className="text-red-500" />
+        </button>
         <button
           onClick={handleFitRoute}
           title="Fit full route in view"
