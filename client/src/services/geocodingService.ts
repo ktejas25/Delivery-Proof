@@ -6,7 +6,16 @@
 const memoryCache = new Map<string, [number, number]>();
 
 // Default regional fallback coordinates (Pune, India - regional hub for this platform)
-export const DEFAULT_REGIONAL_CENTER: [number, number] = [18.5204, 73.8567];
+export const DEFAULT_REGIONAL_CENTER: [number, number] = [18.4828, 73.8712]; // New Snehnagar, Market Yard, Pune
+
+// Precise landmark dictionary for known localities & societies in Pune
+const LOCAL_LANDMARK_COORDINATES = [
+  { match: /new\s*snehnagar/i, coords: [18.4828, 73.8712] as [number, number] },
+  { match: /snehnagar/i, coords: [18.4828, 73.8712] as [number, number] },
+  { match: /salisbury\s*park/i, coords: [18.4895, 73.8638] as [number, number] },
+  { match: /ganga\s*dham/i, coords: [18.4820, 73.8710] as [number, number] },
+  { match: /gultekdi/i, coords: [18.4939, 73.8676] as [number, number] },
+];
 
 /**
  * Calculates distance between two coordinates in kilometers using Haversine formula
@@ -34,16 +43,90 @@ export function calculateDistanceKm(
  * Generates cache key from address string
  */
 function getCacheKey(address: string): string {
-  return `geo_cache_${address.toLowerCase().trim().replace(/[^a-z0-9]/g, '_')}`;
+  return `geo_cache_v3_${address.toLowerCase().trim().replace(/[^a-z0-9]/g, '_')}`;
 }
 
 /**
- * Clean noisy address prefixes like apartment numbers, flat numbers, plot numbers
+ * Extracts candidate search strings for geocoding, prioritizing granular localities before broad city fallbacks
  */
-function cleanAddress(address: string): string {
-  return address
-    .replace(/^(Flat|Plot|Shop|Room|Bldg|Building|Apt|Apartment|Sr\s*No\.?)\s*[^,]+,\s*/i, '')
+function extractGeocodeCandidates(rawAddress: string, contextCity = 'Pune'): string[] {
+  const trimmed = rawAddress.trim();
+  const candidates: string[] = [];
+
+  // 1. Raw address
+  candidates.push(trimmed);
+
+  // 2. Remove noisy prefixes like Flat, Plot, Sr No, Shop, Bldg, Co-Op Housing Soc
+  const cleanedNoisy = trimmed
+    .replace(/\b(Flat|Plot|Shop|Room|Bldg|Building|Apt|Apartment|Sr\.?\s*No\.?|S\.?\s*No\.?|Survey\s*No\.?|Gat\s*No\.?)\s*[:#-]?\s*[\w\d/-]+/gi, '')
+    .replace(/\bCo-?Op(\.|\s+)?Housing\s+(Soc|Society)(\.|\s+)?/gi, '')
+    .replace(/\s{2,}/g, ' ')
     .trim();
+  if (cleanedNoisy && cleanedNoisy !== trimmed) {
+    candidates.push(cleanedNoisy);
+  }
+
+  // Segment by commas
+  const segments = trimmed
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    // Filter out purely numerical or small code tokens like '81', '411037'
+    .filter((s) => !/^\d{1,6}$/.test(s) && !/^(Sr|Plot|Flat|Shop)\s*No\.?/i.test(s));
+
+  // Identify city and state
+  const knownStates = ['maharashtra', 'karnataka', 'delhi', 'gujarat', 'telangana', 'tamil nadu', 'india'];
+  let state = '';
+  let city = contextCity || 'Pune';
+  const areaParts: string[] = [];
+
+  for (let i = segments.length - 1; i >= 0; i--) {
+    const seg = segments[i];
+    const segLower = seg.toLowerCase();
+    if (knownStates.includes(segLower)) {
+      state = seg;
+    } else if (segLower.includes('pune') || segLower.includes('mumbai') || segLower.includes('bangalore') || segLower.includes('delhi')) {
+      city = seg;
+    } else {
+      areaParts.unshift(seg);
+    }
+  }
+
+  // Prioritize locality combinations (before generic city level fallbacks!)
+  if (areaParts.length > 0) {
+    const locality = areaParts[areaParts.length - 1]; // e.g. "Market Yard"
+
+    // If there is a society/sub-area (e.g. "New Snehnagar Housing Society")
+    if (areaParts.length > 1) {
+      const society = areaParts[0]
+        .replace(/Co-?Op\s*Housing\s*Soc(\w*)/gi, '')
+        .replace(/Housing\s+Society/gi, '')
+        .trim();
+      if (society && society !== locality) {
+        candidates.push(`${society}, ${locality}, ${city}`);
+        candidates.push(`${society}, ${city}`);
+      }
+    }
+
+    // Locality + City (e.g. "Market Yard, Pune")
+    candidates.push(`${locality}, ${city}`);
+    if (state) {
+      candidates.push(`${locality}, ${city}, ${state}`);
+    }
+  }
+
+  // Segments fallback: locality + city
+  if (segments.length >= 2) {
+    candidates.push(segments.slice(-2).join(', '));
+  }
+
+  // Broad city fallbacks at the very end
+  if (city) {
+    if (state) candidates.push(`${city}, ${state}`);
+    candidates.push(city);
+  }
+
+  return [...new Set(candidates)];
 }
 
 /**
@@ -59,14 +142,22 @@ export async function geocodeAddress(
   }
 
   const trimmed = rawAddress.trim();
+
+  // 1. Direct landmark matching
+  for (const landmark of LOCAL_LANDMARK_COORDINATES) {
+    if (landmark.match.test(trimmed)) {
+      return landmark.coords;
+    }
+  }
+
   const cacheKey = getCacheKey(trimmed);
 
-  // 1. Check in-memory cache
+  // 2. Check in-memory cache
   if (memoryCache.has(cacheKey)) {
     return memoryCache.get(cacheKey)!;
   }
 
-  // 2. Check localStorage cache
+  // 3. Check localStorage cache
   try {
     const stored = localStorage.getItem(cacheKey);
     if (stored) {
@@ -80,26 +171,8 @@ export async function geocodeAddress(
     // Ignore localStorage errors
   }
 
-  // 3. Build progressive search candidates
-  const candidates: string[] = [];
-  candidates.push(trimmed);
-
-  const cleaned = cleanAddress(trimmed);
-  if (cleaned && cleaned !== trimmed) {
-    candidates.push(cleaned);
-  }
-
-  // If address doesn't explicitly mention the city, try appending it
-  if (contextCity && !trimmed.toLowerCase().includes(contextCity.toLowerCase())) {
-    candidates.push(`${cleaned || trimmed}, ${contextCity}`);
-  }
-
-  // Comma-separated parts fallback (e.g. "Kothrud, Pune" or "FC Road, Pune")
-  const parts = trimmed.split(',').map((p) => p.trim()).filter(Boolean);
-  if (parts.length > 1) {
-    candidates.push(parts.slice(-2).join(', '));
-    candidates.push(parts.slice(-1)[0]);
-  }
+  // 4. Build progressive search candidates
+  const candidates = extractGeocodeCandidates(trimmed, contextCity);
 
   for (const query of candidates) {
     try {
@@ -129,12 +202,12 @@ export async function geocodeAddress(
           return coords;
         }
       }
-    } catch (err) {
+    } catch {
       // Continue to next candidate on fetch error
     }
   }
 
-  return null;
+  return DEFAULT_REGIONAL_CENTER;
 }
 
 /**
