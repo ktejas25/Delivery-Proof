@@ -288,15 +288,31 @@ const getDeliveries = async (req, res) => {
       return res.json([]);
     }
 
-    console.log(`[DEBUG] Calling sp_get_customer_delivery_history for customer: ${customer_id}`);
-    const [rows] = await pool.query(
-      "CALL sp_get_customer_delivery_history(?)",
-      [customer_id],
+    console.log(`[DEBUG] Querying delivery history for customer: ${customer_id}`);
+    const [results] = await pool.query(
+      `SELECT
+          d.uuid,
+          d.order_number,
+          d.delivery_status,
+          d.scheduled_time,
+          d.estimated_arrival,
+          d.actual_arrival,
+          d.created_at,
+          c.address AS delivery_address,
+          dr.id as driver_id,
+          CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) as driver_name,
+          dr.avg_rating as driver_avg_rating
+      FROM deliveries d
+      JOIN customers c ON d.customer_id = c.id
+      LEFT JOIN drivers dr ON d.driver_id = dr.id
+      LEFT JOIN users u ON dr.user_id = u.id
+      WHERE d.customer_id = ?
+      ORDER BY d.created_at DESC`,
+      [customer_id]
     );
     
-    const results = rows[0] || [];
     console.log(`[DEBUG] Returning ${results.length} deliveries`);
-    res.json(results);
+    res.json(results || []);
   } catch (err) {
     console.error(`[DEBUG] getDeliveries error:`, err);
     res.status(500).json({ error: err.message });
@@ -330,8 +346,26 @@ const getDeliveryDetails = async (req, res) => {
 const trackDelivery = async (req, res) => {
   const { uuid } = req.params;
   try {
-    const [rows] = await pool.query("CALL sp_track_delivery(?)", [uuid]);
-    res.json(rows[0][0] || null);
+    const [rows] = await pool.query(
+      `SELECT
+          d.uuid,
+          d.delivery_status,
+          d.scheduled_time,
+          d.estimated_arrival,
+          c.name as customer_name,
+          c.address as customer_address,
+          dr.id as driver_id,
+          CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) as driver_name,
+          dr.last_location_lat,
+          dr.last_location_lng
+      FROM deliveries d
+      JOIN customers c ON d.customer_id = c.id
+      LEFT JOIN drivers dr ON d.driver_id = dr.id
+      LEFT JOIN users u ON dr.user_id = u.id
+      WHERE d.uuid = ?`,
+      [uuid]
+    );
+    res.json(rows[0] || null);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -356,14 +390,25 @@ const rateDriver = async (req, res) => {
     const internal_delivery_id = dels[0].id;
     const driver_id = dels[0].driver_id;
 
-    // Call sp
-    await pool.query("CALL sp_submit_driver_rating(?, ?, ?, ?, ?)", [
-      internal_delivery_id,
-      driver_id,
-      customer_id,
-      rating,
-      comment,
-    ]);
+    // Insert rating
+    await pool.query(
+      `INSERT INTO driver_ratings (delivery_id, driver_id, customer_id, rating, comment)
+       VALUES (?, ?, ?, ?, ?)`,
+      [internal_delivery_id, driver_id, customer_id, rating, comment]
+    );
+
+    // Update driver's average rating
+    await pool.query(
+      `UPDATE drivers
+       SET avg_rating = (
+         SELECT AVG(rating)
+         FROM driver_ratings
+         WHERE driver_id = ?
+       )
+       WHERE id = ?`,
+      [driver_id, driver_id]
+    );
+
     res.json({ message: "Rating submitted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -424,8 +469,17 @@ const getAddresses = async (req, res) => {
       return res.json([]);
     }
 
-    let [rows] = await pool.query("CALL sp_get_customer_addresses(?)", [customer_id]);
-    let addressList = rows[0] || [];
+    const fetchAddresses = async () => {
+      const [rows] = await pool.query(
+        `SELECT id, label, address, ST_X(location) AS lat, ST_Y(location) AS lng, is_default
+         FROM customer_addresses
+         WHERE customer_id = ?`,
+        [customer_id]
+      );
+      return rows || [];
+    };
+
+    let addressList = await fetchAddresses();
 
     // If no saved addresses exist yet in customer_addresses, automatically sync the existing address from customers table
     if (addressList.length === 0) {
@@ -444,8 +498,7 @@ const getAddresses = async (req, res) => {
           [customer_id, cust.address, `POINT(${lat} ${lng})`]
         );
 
-        [rows] = await pool.query("CALL sp_get_customer_addresses(?)", [customer_id]);
-        addressList = rows[0] || [];
+        addressList = await fetchAddresses();
       }
     }
 
