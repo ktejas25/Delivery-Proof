@@ -29,7 +29,8 @@ import DriverSkeleton from "../components/driver/ui/DriverSkeleton";
 import DriverBottomNav, { DriverTab } from "../components/driver/ui/DriverBottomNav";
 import DriverHistoryView from "../components/driver/pages/DriverHistoryView";
 import DriverEarningsView from "../components/driver/pages/DriverEarningsView";
-import DriverProfileView from "../components/driver/pages/DriverProfileView";
+import DriverProfileView, { DutyStatus } from "../components/driver/pages/DriverProfileView";
+import api from "../services/api";
 import ProofModal, { ProofData } from "../components/ProofModal";
 import DriverRouteMap from "../components/driver/DriverRouteMap";
 import DeliveryIssueModal from "../components/driver/DeliveryIssueModal";
@@ -107,7 +108,87 @@ const DriverDashboard: React.FC = () => {
   } = useDeliveries();
 
   const { status: gpsStatus, position: gpsPosition, getPosition } = useGPS();
-  const { formattedTime, stop, reset } = useShiftTimer();
+
+  // Central authoritative Duty Status & Shift State (Requirements 5, 9, 10, 19)
+  const [dutyStatus, setDutyStatus] = useState<DutyStatus>(() => {
+    if (user?.duty_status) return user.duty_status;
+    try {
+      const cached = localStorage.getItem("driver_duty_status");
+      if (cached === "available" || cached === "break" || cached === "off_duty") {
+        return cached;
+      }
+    } catch {
+      // Ignore
+    }
+    return "available";
+  });
+
+  const [shiftStatus, setShiftStatus] = useState<"not_started" | "active" | "ended">(() => {
+    if (user?.shift_status) return user.shift_status;
+    try {
+      const cached = localStorage.getItem("driver_shift_status");
+      if (cached === "not_started" || cached === "active" || cached === "ended") {
+        return cached;
+      }
+    } catch {
+      // Ignore
+    }
+    return "not_started";
+  });
+
+  const [shiftStartedAt, setShiftStartedAt] = useState<string | null>(() => {
+    if (user?.shift_started_at) return user.shift_started_at;
+    try {
+      const cached = localStorage.getItem("driver_shift_started_at");
+      if (cached) return cached;
+    } catch {
+      // Ignore
+    }
+    return null;
+  });
+
+  const [isUpdatingDuty, setIsUpdatingDuty] = useState(false);
+
+  // Authoritative shift timer (only active if shiftStatus is active and shiftStartedAt is present)
+  const isShiftActive = shiftStatus === "active" && Boolean(shiftStartedAt);
+  const { formattedTime, stop, reset, start: startShiftTimer } = useShiftTimer({
+    startTime: shiftStartedAt,
+    isActive: isShiftActive,
+  });
+
+  // Sync central authoritative driver status from backend on mount (Requirement 5 & 20)
+  useEffect(() => {
+    let isMounted = true;
+    const syncAuthoritativeStatus = async () => {
+      try {
+        const res = await api.get("/driver/status");
+        if (!isMounted || !res.data) return;
+
+        const serverDuty = res.data.duty_status || "available";
+        const serverShiftStatus = res.data.shift_status || "not_started";
+        const serverShiftStartedAt = res.data.shift_started_at || null;
+
+        setDutyStatus(serverDuty);
+        setShiftStatus(serverShiftStatus);
+        setShiftStartedAt(serverShiftStartedAt);
+
+        localStorage.setItem("driver_duty_status", serverDuty);
+        localStorage.setItem("driver_shift_status", serverShiftStatus);
+        if (serverShiftStartedAt) {
+          localStorage.setItem("driver_shift_started_at", serverShiftStartedAt);
+        } else {
+          localStorage.removeItem("driver_shift_started_at");
+        }
+      } catch (err) {
+        console.error("Failed to sync driver status from server:", err);
+      }
+    };
+
+    syncAuthoritativeStatus();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Navigation state: route | history | earnings | profile
   const [activeTab, setActiveTab] = useState<DriverTab>("route");
@@ -213,19 +294,132 @@ const DriverDashboard: React.FC = () => {
     navigate("/login");
   }, [logout, navigate]);
 
+  const handleDutyChange = useCallback(
+    async (status: DutyStatus) => {
+      if (isUpdatingDuty || status === dutyStatus) return;
+
+      // Business rule: Prevent going on break or off-duty while actively delivering (Requirements 7 & 8)
+      if (status === "break" || status === "off_duty") {
+        const hasActiveDelivery = deliveries.some(
+          (d) => d.delivery_status === "in_transit" || d.delivery_status === "arrived"
+        );
+        if (hasActiveDelivery) {
+          const label = status === "break" ? "On Break" : "Off-Duty";
+          toast.error(
+            `Cannot change status to ${label} while a delivery is in progress. Please complete or report the active delivery first.`
+          );
+          return;
+        }
+      }
+
+      setIsUpdatingDuty(true);
+      try {
+        const res = await api.patch("/driver/duty-status", { duty_status: status });
+        const updatedStatus = (res.data.duty_status || status) as DutyStatus;
+
+        setDutyStatus(updatedStatus);
+        localStorage.setItem("driver_duty_status", updatedStatus);
+
+        const labels: Record<DutyStatus, string> = {
+          available: "Status set to Available",
+          break: "Driver paused for Break",
+          off_duty: "Status set to Off-Duty",
+        };
+        toast.success(labels[updatedStatus]);
+      } catch (err: any) {
+        console.error("Failed to update duty status:", err);
+        const errMsg =
+          err?.response?.data?.message || "Failed to update duty status. Please try again.";
+        toast.error(errMsg);
+      } finally {
+        setIsUpdatingDuty(false);
+      }
+    },
+    [dutyStatus, isUpdatingDuty, deliveries]
+  );
+
   const handleStatusChange = useCallback(
     async (uuid: string, status: Delivery["delivery_status"]) => {
+      // Duplicate action protection (Requirement 15)
+      if (actionLoading) return;
+
+      // Requirement 13: Validate rules before starting delivery (in_transit)
+      if (status === "in_transit") {
+        if (offline) {
+          toast.error("Cannot start delivery while offline. Please check your internet connection.");
+          return;
+        }
+        if (gpsStatus === "denied") {
+          toast.error("Cannot start delivery: GPS permission is denied. Please enable location access.");
+          return;
+        }
+        if (gpsStatus === "unavailable") {
+          toast.error("Cannot start delivery: GPS signal unavailable. Please ensure location is enabled.");
+          return;
+        }
+        if (dutyStatus === "break") {
+          toast.error("Cannot start delivery while On Break. Please set your duty status to Available first.");
+          return;
+        }
+        if (dutyStatus === "off_duty") {
+          toast.error("Cannot start delivery while Off-Duty. Please set your duty status to Available first.");
+          return;
+        }
+        if (dutyStatus !== "available") {
+          toast.error("Cannot start delivery: Driver must be Available.");
+          return;
+        }
+
+        // Prevent starting delivery if another delivery is already active (Requirement 13)
+        const hasExistingActive = deliveries.some(
+          (d) =>
+            (d.delivery_status === "in_transit" || d.delivery_status === "arrived") &&
+            d.uuid !== uuid
+        );
+        if (hasExistingActive) {
+          toast.error("You already have an active delivery in progress. Complete or update the current stop first.");
+          return;
+        }
+      }
+
       setActionLoading(uuid);
       try {
-        await updateDeliveryStatus(uuid, status);
-        toast.success(`Delivery status updated to ${status.replace("_", " ")}`);
-      } catch (err) {
-        toast.error("Failed to update delivery status");
+        const res = await updateDeliveryStatus(uuid, status);
+
+        // Requirement 1 & 14: Shift start logic on FIRST delivery start ONLY
+        if (status === "in_transit") {
+          if (shiftStatus !== "active") {
+            const startedAt = res?.shift_started_at || new Date().toISOString();
+            setShiftStatus("active");
+            setShiftStartedAt(startedAt);
+            localStorage.setItem("driver_shift_status", "active");
+            localStorage.setItem("driver_shift_started_at", startedAt);
+            startShiftTimer(startedAt);
+            toast.success("Delivery started. Shift started!");
+          } else {
+            // Existing active shift: preserve original timestamp (Requirement 14)
+            toast.success(`Delivery status updated to ${status.replace("_", " ")}`);
+          }
+        } else {
+          toast.success(`Delivery status updated to ${status.replace("_", " ")}`);
+        }
+      } catch (err: any) {
+        const errMsg = err?.response?.data?.message || "Failed to update delivery status";
+        toast.error(errMsg);
       } finally {
         setActionLoading(null);
       }
     },
-    [updateDeliveryStatus]
+    [
+      actionLoading,
+      offline,
+      gpsStatus,
+      dutyStatus,
+      deliveries,
+      shiftStatus,
+      updateDeliveryStatus,
+      startShiftTimer,
+    ]
   );
 
   const handleCall = useCallback((delivery: Delivery) => {
@@ -312,8 +506,17 @@ const DriverDashboard: React.FC = () => {
     [submitDeliveryProof, getPosition]
   );
 
-  const handleEndShift = useCallback(() => {
+  const handleEndShift = useCallback(async () => {
     const earnings = deliveries.reduce((sum, d) => sum + (d.earnings || 50), 0);
+    try {
+      await api.post("/driver/shift/end");
+    } catch (err) {
+      console.error("Failed to end shift on backend:", err);
+    }
+    setShiftStatus("not_started");
+    setShiftStartedAt(null);
+    localStorage.setItem("driver_shift_status", "not_started");
+    localStorage.removeItem("driver_shift_started_at");
     stop();
     reset();
     playDriverSound("complete");
@@ -379,6 +582,8 @@ const DriverDashboard: React.FC = () => {
         completedCount={stats.completed}
         totalEarnings={stats.totalEarnings}
         shiftTime={formattedTime}
+        isShiftActive={isShiftActive}
+        dutyStatus={dutyStatus}
         driverName={displayName}
         isOnline={!offline}
         gpsStatus={gpsStatus}
@@ -550,6 +755,7 @@ const DriverDashboard: React.FC = () => {
                 completionPercentage={stats.completionPercentage}
                 totalEarnings={stats.totalEarnings}
                 shiftTime={formattedTime}
+                isShiftActive={isShiftActive}
               />
 
               {/* Empty state when 0 deliveries are assigned */}
@@ -692,6 +898,7 @@ const DriverDashboard: React.FC = () => {
                             <div className="hidden lg:block lg:col-span-5 xl:col-span-4 h-full">
                               <ShiftSummary
                                 shiftTime={formattedTime}
+                                isShiftActive={isShiftActive}
                                 totalEarnings={stats.totalEarnings}
                                 completedCount={stats.completed}
                                 totalCount={stats.total}
@@ -776,6 +983,7 @@ const DriverDashboard: React.FC = () => {
             <DriverEarningsView
               deliveries={deliveries}
               shiftTime={formattedTime}
+              isShiftActive={isShiftActive}
               totalEarnings={stats.totalEarnings}
               onEndShift={handleEndShift}
             />
@@ -789,6 +997,9 @@ const DriverDashboard: React.FC = () => {
               phone={user?.phone}
               gpsStatus={gpsStatus}
               isOnline={!offline}
+              dutyStatus={dutyStatus}
+              onDutyChange={handleDutyChange}
+              isUpdatingDuty={isUpdatingDuty}
               onLogout={handleLogout}
             />
           )}

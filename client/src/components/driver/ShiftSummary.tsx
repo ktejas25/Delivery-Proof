@@ -6,6 +6,7 @@ import { cn } from "./utils";
 
 interface ShiftSummaryProps {
   shiftTime: string;
+  isShiftActive?: boolean;
   totalEarnings: number;
   completedCount: number;
   totalCount: number;
@@ -17,6 +18,7 @@ interface ShiftSummaryProps {
 const ShiftSummary: React.FC<ShiftSummaryProps> = memo(
   ({
     shiftTime,
+    isShiftActive = true,
     totalEarnings,
     completedCount,
     totalCount,
@@ -31,21 +33,28 @@ const ShiftSummary: React.FC<ShiftSummaryProps> = memo(
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Shift Overview
             </h3>
-            <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-              <ShieldCheck size={12} />
-              Active Shift
-            </span>
+            {isShiftActive ? (
+              <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                <ShieldCheck size={12} />
+                Active Shift
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                <Clock size={12} />
+                Not Started
+              </span>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3 mt-4">
             {/* Shift Timer */}
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
               <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium mb-1">
-                <Clock size={13} className="text-amber-500" />
+                <Clock size={13} className={isShiftActive ? "text-amber-500" : "text-slate-400"} />
                 <span>Shift Duration</span>
               </div>
               <p className="text-base font-mono font-bold text-slate-900">
-                {shiftTime}
+                {isShiftActive ? shiftTime : "00:00:00"}
               </p>
             </div>
 

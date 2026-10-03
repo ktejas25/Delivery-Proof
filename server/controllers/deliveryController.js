@@ -173,6 +173,39 @@ const updateDeliveryStatus = async (req, res) => {
       });
     }
 
+    let shiftStartedAt = null;
+    let shiftStatus = null;
+
+    // Validate driver rules when starting delivery (en_route)
+    if (status === "en_route" && currentDelivery.driver_id) {
+      const [driverRows] = await pool.query(
+        "SELECT id, duty_status, shift_status, shift_started_at FROM drivers WHERE id = ?",
+        [currentDelivery.driver_id],
+      );
+
+      if (driverRows.length > 0) {
+        const driver = driverRows[0];
+
+        // Requirement 13: Duty status validation (cannot start if On Break or Off-Duty)
+        if (driver.duty_status !== "available") {
+          return res.status(400).json({
+            message: `Cannot start delivery while ${driver.duty_status === "break" ? "On Break" : "Off-Duty"}. Please set your duty status to Available first.`,
+          });
+        }
+
+        // Requirement 13: Prevent starting another delivery if one is already active
+        const [existingActive] = await pool.query(
+          "SELECT id, order_number FROM deliveries WHERE driver_id = ? AND delivery_status IN ('en_route', 'arrived') AND id != ?",
+          [driver.id, currentDelivery.id],
+        );
+        if (existingActive.length > 0) {
+          return res.status(400).json({
+            message: "You already have an active delivery in progress. Complete or update the current stop first.",
+          });
+        }
+      }
+    }
+
     // 3. Update status in database
     await pool.query(
       "UPDATE deliveries SET delivery_status = ? WHERE uuid = ? AND business_id = ?",
@@ -182,17 +215,52 @@ const updateDeliveryStatus = async (req, res) => {
     const delId = currentDelivery.id;
     const orderNum = currentDelivery.order_number;
 
-    // If status is changed to en_route, mark driver as on_delivery
+    // Shift & driver state lifecycle updates
     if (status === "en_route" && currentDelivery.driver_id) {
-      await pool.query(
-        "UPDATE drivers SET current_status = 'on_delivery' WHERE id = ?",
+      const [driverRows] = await pool.query(
+        "SELECT id, duty_status, shift_status, shift_started_at FROM drivers WHERE id = ?",
         [currentDelivery.driver_id],
       );
+
+      if (driverRows.length > 0) {
+        const driver = driverRows[0];
+
+        // Requirement 1 & 14: Shift starts ONLY on the FIRST successful delivery start
+        if (driver.shift_status !== "active" || !driver.shift_started_at) {
+          const now = new Date();
+          await pool.query(
+            "UPDATE drivers SET current_status = 'on_delivery', shift_status = 'active', shift_started_at = ? WHERE id = ?",
+            [now, driver.id],
+          );
+          shiftStartedAt = now.toISOString();
+          shiftStatus = "active";
+        } else {
+          // Existing active shift: preserve original timestamp, never overwrite (Requirement 14)
+          await pool.query(
+            "UPDATE drivers SET current_status = 'on_delivery' WHERE id = ?",
+            [driver.id],
+          );
+          shiftStartedAt = driver.shift_started_at;
+          shiftStatus = driver.shift_status;
+        }
+      }
     } else if (status === "delivered" && currentDelivery.driver_id) {
-      await pool.query(
-        "UPDATE drivers SET current_status = 'available' WHERE id = ?",
+      // Requirement 4: Delivering does NOT end the shift. Preserve shift_status & shift_started_at.
+      const [driverRows] = await pool.query(
+        "SELECT id, duty_status, shift_status, shift_started_at FROM drivers WHERE id = ?",
         [currentDelivery.driver_id],
       );
+
+      if (driverRows.length > 0) {
+        const driver = driverRows[0];
+        shiftStartedAt = driver.shift_started_at;
+        shiftStatus = driver.shift_status;
+        const targetCurrentStatus = driver.duty_status === "available" ? "available" : driver.duty_status;
+        await pool.query(
+          "UPDATE drivers SET current_status = ? WHERE id = ?",
+          [targetCurrentStatus, driver.id],
+        );
+      }
     }
 
     // Audit log
@@ -228,7 +296,12 @@ const updateDeliveryStatus = async (req, res) => {
       });
     }
 
-    res.json({ message: "Status updated", status });
+    res.json({
+      message: "Status updated",
+      status,
+      shift_status: shiftStatus,
+      shift_started_at: shiftStartedAt,
+    });
   } catch (error) {
     console.error("Status update error:", error);
     res.status(500).json({ message: "Update failed", error: error.message });

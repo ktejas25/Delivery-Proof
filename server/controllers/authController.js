@@ -100,15 +100,27 @@ const login = async (req, res) => {
       user.id,
     ]);
 
-    // If the logged-in user is a driver, mark them as available
+    // If the user is a driver, fetch persisted duty status and shift state (do not reset them on login)
+    let driverInfo = null;
     if (user.user_type && user.user_type.toLowerCase() === "driver") {
-      await pool.query(
-        `UPDATE drivers
-         SET current_status = 'available',
-             is_available = TRUE
-         WHERE user_id = ?`,
+      const [driverRows] = await pool.query(
+        "SELECT id, duty_status, shift_status, shift_started_at, is_available FROM drivers WHERE user_id = ?",
         [user.id],
       );
+      if (driverRows.length > 0) {
+        driverInfo = driverRows[0];
+      } else {
+        await pool.query(
+          "INSERT INTO drivers (user_id, duty_status, shift_status) VALUES (?, 'available', 'not_started')",
+          [user.id],
+        );
+        driverInfo = {
+          duty_status: "available",
+          shift_status: "not_started",
+          shift_started_at: null,
+          is_available: 1,
+        };
+      }
     }
 
     res.json({
@@ -122,6 +134,9 @@ const login = async (req, res) => {
         user_type: user.user_type,
         business_name: user.business_name,
         must_change_password: !!user.must_change_password,
+        duty_status: driverInfo ? driverInfo.duty_status : undefined,
+        shift_status: driverInfo ? driverInfo.shift_status : undefined,
+        shift_started_at: driverInfo ? driverInfo.shift_started_at : undefined,
       },
     });
   } catch (error) {

@@ -1,64 +1,53 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
-export const useShiftTimer = () => {
-  // Hook 1: useState (elapsedSeconds)
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+export interface UseShiftTimerOptions {
+  startTime?: string | number | null;
+  isActive?: boolean;
+}
 
-  // Hook 2: useState (isRunning) - default true so timer starts for active driver
-  const [isRunning, setIsRunning] = useState(true);
+export const useShiftTimer = (options?: UseShiftTimerOptions) => {
+  const { startTime = null, isActive = false } = options || {};
 
-  // Hook 3: useRef (intervalRef)
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(() => {
+    if (!isActive || !startTime) return 0;
+    const timeMs = typeof startTime === 'string' ? new Date(startTime).getTime() : startTime;
+    if (isNaN(timeMs) || timeMs <= 0) return 0;
+    return Math.max(0, Math.floor((Date.now() - timeMs) / 1000));
+  });
+
+  const [isRunning, setIsRunning] = useState<boolean>(Boolean(isActive && startTime));
   const intervalRef = useRef<number | null>(null);
-
-  // Hook 4: useRef (startTimeRef)
   const startTimeRef = useRef<number | null>(null);
 
-  // Hook 5: useEffect (initialize or resume shift start time)
+  // Sync with options changes (authoritative backend / central shift state)
   useEffect(() => {
-    try {
-      const savedStartTime = localStorage.getItem('shiftStartTime');
-      const now = Date.now();
-
-      if (savedStartTime) {
-        const startTime = parseInt(savedStartTime, 10);
-        // If saved within the last 24 hours, resume it
-        if (!isNaN(startTime) && startTime > 0 && now - startTime < 24 * 3600 * 1000) {
-          startTimeRef.current = startTime;
-          setElapsedSeconds(Math.max(0, Math.floor((now - startTime) / 1000)));
-          return;
-        }
-      }
-
-      // If no valid prior shift, start a fresh one
-      startTimeRef.current = now;
-      localStorage.setItem('shiftStartTime', String(now));
-      setElapsedSeconds(0);
-    } catch {
-      // Fallback in case localStorage is unavailable
-      if (!startTimeRef.current) {
-        startTimeRef.current = Date.now();
+    if (isActive && startTime) {
+      const timeMs = typeof startTime === 'string' ? new Date(startTime).getTime() : startTime;
+      if (!isNaN(timeMs) && timeMs > 0) {
+        startTimeRef.current = timeMs;
+        const elapsed = Math.max(0, Math.floor((Date.now() - timeMs) / 1000));
+        setElapsedSeconds(elapsed);
+        setIsRunning(true);
+        return;
       }
     }
-  }, []);
 
-  // Hook 6: useEffect (run 1-second interval ticker and sync with real clock)
+    // Shift is not active or no valid start time
+    if (!isActive) {
+      startTimeRef.current = null;
+      setElapsedSeconds(0);
+      setIsRunning(false);
+    }
+  }, [isActive, startTime]);
+
+  // Regular interval ticker based strictly on real wall-clock difference
   useEffect(() => {
-    if (!isRunning) {
+    if (!isRunning || !startTimeRef.current) {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
       return;
-    }
-
-    // Ensure startTimeRef is initialized
-    if (!startTimeRef.current) {
-      startTimeRef.current = Date.now() - elapsedSeconds * 1000;
-      try {
-        localStorage.setItem('shiftStartTime', String(startTimeRef.current));
-      } catch {
-        // Ignore
-      }
     }
 
     const tick = () => {
@@ -68,13 +57,10 @@ export const useShiftTimer = () => {
       }
     };
 
-    // Immediate tick
     tick();
-
-    // Regular interval
     intervalRef.current = window.setInterval(tick, 1000);
 
-    // Sync on tab visibility change (e.g. mobile wake or tab focus)
+    // Sync on tab visibility change (prevent lag when tab is backgrounded)
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         tick();
@@ -91,38 +77,25 @@ export const useShiftTimer = () => {
     };
   }, [isRunning]);
 
-  // Hook 7: useCallback (start)
-  const start = useCallback(() => {
-    if (!startTimeRef.current) {
-      const now = Date.now();
-      startTimeRef.current = now;
-      try {
-        localStorage.setItem('shiftStartTime', String(now));
-      } catch {
-        // Ignore
-      }
-    }
+  const start = useCallback((initialTime?: number | string) => {
+    const timeMs = initialTime
+      ? (typeof initialTime === 'string' ? new Date(initialTime).getTime() : initialTime)
+      : Date.now();
+    startTimeRef.current = timeMs;
+    setElapsedSeconds(Math.max(0, Math.floor((Date.now() - timeMs) / 1000)));
     setIsRunning(true);
   }, []);
 
-  // Hook 8: useCallback (stop)
   const stop = useCallback(() => {
     setIsRunning(false);
   }, []);
 
-  // Hook 9: useCallback (reset)
   const reset = useCallback(() => {
     setElapsedSeconds(0);
     setIsRunning(false);
     startTimeRef.current = null;
-    try {
-      localStorage.removeItem('shiftStartTime');
-    } catch {
-      // Ignore
-    }
   }, []);
 
-  // Hook 10: useMemo (formattedTime HH:MM:SS)
   const formattedTime = useMemo(() => {
     const hours = Math.floor(elapsedSeconds / 3600);
     const minutes = Math.floor((elapsedSeconds % 3600) / 60);

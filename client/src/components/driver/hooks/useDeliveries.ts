@@ -49,6 +49,7 @@ export const useDeliveries = () => {
   // Optimistic update with sync queue fallback
   const updateDeliveryStatus = useCallback(
     async (uuid: string, newStatus: Delivery['delivery_status']) => {
+      const prevDeliveries = deliveries;
       // Optimistic update
       const updated = deliveries.map((d) =>
         d.uuid === uuid ? { ...d, delivery_status: newStatus } : d
@@ -72,10 +73,16 @@ export const useDeliveries = () => {
           if (dbStatus === 'pending') dbStatus = 'dispatched';
           else if (dbStatus === 'in_transit') dbStatus = 'en_route';
 
-          await api.patch(`/deliveries/${uuid}/status`, { status: dbStatus });
+          const res = await api.patch(`/deliveries/${uuid}/status`, { status: dbStatus });
           setSyncQueue((prev) => prev.filter((item) => item.uuid !== uuid));
+          return res.data;
         } catch (err) {
           console.error('Failed to sync delivery update:', err);
+          // Rollback optimistic update on error
+          setDeliveries(prevDeliveries);
+          localStorage.setItem('deliveries', JSON.stringify(prevDeliveries));
+          setSyncQueue((prev) => prev.filter((item) => item.uuid !== uuid));
+          throw err;
         }
       }
     },

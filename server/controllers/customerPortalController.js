@@ -310,8 +310,8 @@ const getDeliveries = async (req, res) => {
           dr.avg_rating as driver_avg_rating,
           dr.last_location_lat as driver_lat,
           dr.last_location_lng as driver_lng,
-          dp.photo_url as proof_photo,
-          dp.signature_url as proof_signature,
+          d.photo_url as proof_photo,
+          d.signature_url as proof_signature,
           dp.verification_score
       FROM deliveries d
       JOIN customers c ON d.customer_id = c.id

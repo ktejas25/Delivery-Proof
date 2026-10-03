@@ -1,4 +1,4 @@
-import React, { useState, memo } from "react";
+import React, { memo } from "react";
 import {
   User,
   Mail,
@@ -11,7 +11,8 @@ import {
 
 import { GPSStatus } from "../types";
 import { cn } from "../utils";
-import toast from "react-hot-toast";
+
+export type DutyStatus = "available" | "break" | "off_duty";
 
 interface DriverProfileViewProps {
   driverName: string;
@@ -19,10 +20,11 @@ interface DriverProfileViewProps {
   phone?: string;
   gpsStatus: GPSStatus;
   isOnline: boolean;
+  dutyStatus: DutyStatus;
+  onDutyChange: (status: DutyStatus) => void | Promise<void>;
+  isUpdatingDuty?: boolean;
   onLogout: () => void;
 }
-
-type DutyStatus = "available" | "break" | "off_duty";
 
 const DriverProfileView: React.FC<DriverProfileViewProps> = memo(
   ({
@@ -31,18 +33,14 @@ const DriverProfileView: React.FC<DriverProfileViewProps> = memo(
     phone = "+91 98201 12345",
     gpsStatus,
     isOnline,
+    dutyStatus,
+    onDutyChange,
+    isUpdatingDuty = false,
     onLogout,
   }) => {
-    const [dutyStatus, setDutyStatus] = useState<DutyStatus>("available");
-
     const handleDutyChange = (status: DutyStatus) => {
-      setDutyStatus(status);
-      const labels: Record<DutyStatus, string> = {
-        available: "Status set to Available",
-        break: "Driver paused for Break",
-        off_duty: "Status set to Off-Duty",
-      };
-      toast.success(labels[status]);
+      if (isUpdatingDuty || dutyStatus === status) return;
+      onDutyChange(status);
     };
 
     return (
@@ -119,8 +117,10 @@ const DriverProfileView: React.FC<DriverProfileViewProps> = memo(
               <button
                 key={option.id}
                 onClick={() => handleDutyChange(option.id as DutyStatus)}
+                disabled={isUpdatingDuty}
                 className={cn(
                   "min-h-[44px] p-2.5 rounded-xl border text-center transition cursor-pointer flex flex-col items-center justify-center gap-0.5",
+                  isUpdatingDuty && "opacity-70 cursor-not-allowed",
                   dutyStatus === option.id ? option.color : option.inactiveColor
                 )}
               >

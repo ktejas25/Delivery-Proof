@@ -21,6 +21,8 @@ interface DriverSidebarProps {
   completedCount: number;
   totalEarnings: number;
   shiftTime: string;
+  isShiftActive: boolean;
+  dutyStatus?: "available" | "break" | "off_duty";
   driverName: string;
   isOnline: boolean;
   gpsStatus: GPSStatus;
@@ -77,6 +79,8 @@ const DriverSidebar: React.FC<DriverSidebarProps> = memo(
     completedCount,
     totalEarnings,
     shiftTime,
+    isShiftActive,
+    dutyStatus = "available",
     driverName,
     isOnline,
     gpsStatus,
@@ -184,15 +188,18 @@ const DriverSidebar: React.FC<DriverSidebarProps> = memo(
                 </nav>
               </div>
 
-              {/* Shift Quick Status Card in Sidebar */}
+              {/* Shift Quick Status Card in Sidebar (Requirement 17) */}
               <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
-                    <Clock size={13} className="text-amber-500" />
-                    Active Shift
+                    <Clock size={13} className={isShiftActive ? "text-amber-500" : "text-slate-400"} />
+                    {isShiftActive ? "Active Shift" : "Shift Not Started"}
                   </span>
-                  <span className="font-mono text-xs font-bold text-slate-800">
-                    {shiftTime}
+                  <span className={cn(
+                    "text-xs font-bold",
+                    isShiftActive ? "font-mono text-slate-800" : "text-slate-400 font-semibold"
+                  )}>
+                    {isShiftActive ? shiftTime : "Start delivery"}
                   </span>
                 </div>
 
@@ -235,7 +242,7 @@ const DriverSidebar: React.FC<DriverSidebarProps> = memo(
                   <p className="font-bold text-xs sm:text-sm text-slate-900 truncate">
                     {driverName}
                   </p>
-                  <div className="flex items-center gap-1 text-[11px]">
+                  <div className="flex items-center gap-1.5 text-[11px]">
                     {isOnline ? (
                       <span className="text-emerald-600 font-semibold flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -247,6 +254,23 @@ const DriverSidebar: React.FC<DriverSidebarProps> = memo(
                         Offline
                       </span>
                     )}
+                    <span className="text-slate-300">•</span>
+                    <span
+                      className={cn(
+                        "font-bold capitalize",
+                        dutyStatus === "available"
+                          ? "text-emerald-600"
+                          : dutyStatus === "break"
+                          ? "text-amber-600"
+                          : "text-slate-600"
+                      )}
+                    >
+                      {dutyStatus === "off_duty"
+                        ? "Off-Duty"
+                        : dutyStatus === "break"
+                        ? "Break"
+                        : "Available"}
+                    </span>
                   </div>
                 </div>
               </div>

@@ -9,9 +9,7 @@ const updateLocation = async (req, res) => {
       `UPDATE drivers 
              SET last_location_lat = ?, 
                  last_location_lng = ?, 
-                 last_location_update = NOW(),
-                 current_status = 'available',
-                 is_available = TRUE
+                 last_location_update = NOW()
              WHERE user_id = ?`,
       [lat, lng, user_id],
     );
@@ -160,4 +158,160 @@ const getDriverPerformance = async (req, res) => {
   }
 };
 
-module.exports = { updateLocation, getDriverPerformance };
+const getDriverStatus = async (req, res) => {
+  const { id: user_id } = req.user;
+  try {
+    const [rows] = await pool.query(
+      "SELECT id, duty_status, shift_status, shift_started_at, shift_ended_at, is_available FROM drivers WHERE user_id = ?",
+      [user_id],
+    );
+
+    if (rows.length === 0) {
+      // Create default driver record if missing
+      await pool.query(
+        "INSERT INTO drivers (user_id, duty_status, shift_status) VALUES (?, 'available', 'not_started')",
+        [user_id],
+      );
+      return res.json({
+        duty_status: "available",
+        shift_status: "not_started",
+        shift_started_at: null,
+        shift_ended_at: null,
+        is_available: true,
+      });
+    }
+
+    const driver = rows[0];
+    res.json({
+      duty_status: driver.duty_status || "available",
+      shift_status: driver.shift_status || "not_started",
+      shift_started_at: driver.shift_started_at,
+      shift_ended_at: driver.shift_ended_at,
+      is_available: Boolean(driver.is_available),
+    });
+  } catch (error) {
+    console.error("Failed to fetch driver status:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+const updateDutyStatus = async (req, res) => {
+  const { id: user_id } = req.user;
+  const { duty_status } = req.body;
+
+  if (!["available", "break", "off_duty"].includes(duty_status)) {
+    return res.status(400).json({
+      message: "Invalid duty status. Must be available, break, or off_duty.",
+    });
+  }
+
+  try {
+    const [driverRows] = await pool.query(
+      "SELECT id, duty_status, shift_status, shift_started_at FROM drivers WHERE user_id = ?",
+      [user_id],
+    );
+
+    if (driverRows.length === 0) {
+      return res.status(404).json({ message: "Driver record not found" });
+    }
+
+    const driver = driverRows[0];
+
+    // Duplicate action protection: if already matches, return current state without duplicate work
+    if (driver.duty_status === duty_status) {
+      return res.json({
+        success: true,
+        message: "Duty status unchanged",
+        duty_status: driver.duty_status,
+        shift_status: driver.shift_status,
+        shift_started_at: driver.shift_started_at,
+      });
+    }
+
+    // Business rule check: Prevent On Break or Off-Duty while actively delivering (Requirements 7 & 8)
+    if (duty_status === "break" || duty_status === "off_duty") {
+      const [activeDeliveries] = await pool.query(
+        "SELECT id, order_number FROM deliveries WHERE driver_id = ? AND delivery_status IN ('en_route', 'arrived')",
+        [driver.id],
+      );
+      if (activeDeliveries.length > 0) {
+        const label = duty_status === "break" ? "On Break" : "Off-Duty";
+        return res.status(400).json({
+          message: `Cannot change status to ${label} while a delivery is in progress. Please complete or report the active delivery first.`,
+        });
+      }
+    }
+
+    // Map to legacy current_status for fleet compatibility
+    let targetCurrentStatus = "available";
+    let isAvailable = true;
+    if (duty_status === "break") {
+      targetCurrentStatus = "break";
+      isAvailable = false;
+    } else if (duty_status === "off_duty") {
+      targetCurrentStatus = "offline";
+      isAvailable = false;
+    }
+
+    // NOTE: Selecting Available, On Break, or Off-Duty does NOT start or alter shift! (Requirements 6, 7, 8, 22)
+    await pool.query(
+      `UPDATE drivers 
+       SET duty_status = ?,
+           current_status = ?,
+           is_available = ?
+       WHERE id = ?`,
+      [duty_status, targetCurrentStatus, isAvailable, driver.id],
+    );
+
+    res.json({
+      success: true,
+      duty_status,
+      shift_status: driver.shift_status,
+      shift_started_at: driver.shift_started_at,
+    });
+  } catch (error) {
+    console.error("Failed to update duty status:", error);
+    res.status(500).json({ message: "Failed to update duty status" });
+  }
+};
+
+const endShift = async (req, res) => {
+  const { id: user_id } = req.user;
+  try {
+    const [driverRows] = await pool.query(
+      "SELECT id FROM drivers WHERE user_id = ?",
+      [user_id],
+    );
+    if (driverRows.length === 0) {
+      return res.status(404).json({ message: "Driver record not found" });
+    }
+
+    const driverId = driverRows[0].id;
+    await pool.query(
+      `UPDATE drivers 
+       SET shift_status = 'not_started',
+           shift_started_at = NULL,
+           shift_ended_at = NOW()
+       WHERE id = ?`,
+      [driverId],
+    );
+
+    res.json({
+      success: true,
+      message: "Shift ended successfully",
+      shift_status: "not_started",
+      shift_started_at: null,
+    });
+  } catch (error) {
+    console.error("Failed to end shift:", error);
+    res.status(500).json({ message: "Failed to end shift" });
+  }
+};
+
+module.exports = {
+  updateLocation,
+  getDriverPerformance,
+  getDriverStatus,
+  updateDutyStatus,
+  endShift,
+};

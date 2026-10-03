@@ -7,6 +7,7 @@ interface RouteProgressProps {
   completionPercentage: number;
   totalEarnings: number;
   shiftTime: string;
+  isShiftActive?: boolean;
 }
 
 const RouteProgress: React.FC<RouteProgressProps> = memo(
@@ -16,6 +17,7 @@ const RouteProgress: React.FC<RouteProgressProps> = memo(
     completionPercentage,
     totalEarnings,
     shiftTime,
+    isShiftActive = true,
   }) => {
     const remaining = Math.max(0, total - completed);
 
@@ -66,7 +68,7 @@ const RouteProgress: React.FC<RouteProgressProps> = memo(
             <div className="truncate">
               <span className="text-slate-400 text-[11px] mr-1 hidden sm:inline">Shift</span>
               <span className="font-mono font-bold text-slate-800 text-[11px] sm:text-xs">
-                {shiftTime}
+                {isShiftActive ? shiftTime : "Not Started"}
               </span>
             </div>
           </div>

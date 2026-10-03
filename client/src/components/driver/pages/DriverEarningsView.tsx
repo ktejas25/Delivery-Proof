@@ -15,12 +15,13 @@ import { formatOrderNumber, formatTime } from "../utils";
 interface DriverEarningsViewProps {
   deliveries: Delivery[];
   shiftTime: string;
+  isShiftActive?: boolean;
   totalEarnings: number;
   onEndShift: () => void;
 }
 
 const DriverEarningsView: React.FC<DriverEarningsViewProps> = memo(
-  ({ deliveries, shiftTime, totalEarnings, onEndShift }) => {
+  ({ deliveries, shiftTime, isShiftActive = true, totalEarnings, onEndShift }) => {
     const completedDeliveries = deliveries.filter(
       (d) => d.delivery_status === "delivered"
     );
@@ -41,7 +42,7 @@ const DriverEarningsView: React.FC<DriverEarningsViewProps> = memo(
               </span>
               <span className="bg-white/20 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
                 <Sparkles size={11} />
-                Active Shift
+                {isShiftActive ? "Active Shift" : "Shift Not Started"}
               </span>
             </div>
 
@@ -61,7 +62,9 @@ const DriverEarningsView: React.FC<DriverEarningsViewProps> = memo(
                   <Clock size={12} />
                   <span>Shift Time</span>
                 </div>
-                <p className="font-mono font-bold text-sm">{shiftTime}</p>
+                <p className="font-mono font-bold text-sm">
+                  {isShiftActive ? shiftTime : "00:00:00"}
+                </p>
               </div>
 
               <div className="bg-white/10 rounded-xl p-2.5 backdrop-blur-xs">

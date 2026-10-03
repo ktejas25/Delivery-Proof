@@ -13,6 +13,9 @@ export interface User {
   name?: string;
   phone?: string;
   must_change_password?: boolean;
+  duty_status?: "available" | "break" | "off_duty";
+  shift_status?: "not_started" | "active" | "ended";
+  shift_started_at?: string | null;
 }
 
 
