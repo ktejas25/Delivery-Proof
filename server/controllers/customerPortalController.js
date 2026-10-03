@@ -298,14 +298,26 @@ const getDeliveries = async (req, res) => {
           d.estimated_arrival,
           d.actual_arrival,
           d.created_at,
+          d.delivery_notes,
+          d.priority_level,
           c.address AS delivery_address,
+          ST_X(c.location) AS address_lat,
+          ST_Y(c.location) AS address_lng,
           dr.id as driver_id,
           CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) as driver_name,
-          dr.avg_rating as driver_avg_rating
+          u.phone as driver_phone,
+          dr.vehicle_type as driver_vehicle,
+          dr.avg_rating as driver_avg_rating,
+          dr.last_location_lat as driver_lat,
+          dr.last_location_lng as driver_lng,
+          dp.photo_url as proof_photo,
+          dp.signature_url as proof_signature,
+          dp.verification_score
       FROM deliveries d
       JOIN customers c ON d.customer_id = c.id
       LEFT JOIN drivers dr ON d.driver_id = dr.id
       LEFT JOIN users u ON dr.user_id = u.id
+      LEFT JOIN delivery_proofs dp ON dp.delivery_id = d.id
       WHERE d.customer_id = ?
       ORDER BY d.created_at DESC`,
       [customer_id]
@@ -685,6 +697,59 @@ const getUpcomingOrdersCount = async (req, res) => {
   }
 };
 
+const exportDeliveries = async (req, res) => {
+  try {
+    const customer_id = await resolveCustomerId(req);
+    if (!customer_id) {
+      return res.status(404).json({ message: "Customer profile not found" });
+    }
+
+    const [rows] = await pool.query(
+      `SELECT
+          d.order_number as "Order Number",
+          d.delivery_status as "Status",
+          d.priority_level as "Priority",
+          d.scheduled_time as "Scheduled Time",
+          d.actual_arrival as "Delivered Time",
+          c.address as "Delivery Address",
+          CONCAT_WS(' ', u.first_name, u.last_name) as "Assigned Driver",
+          d.delivery_notes as "Delivery Notes",
+          d.created_at as "Date Placed"
+       FROM deliveries d
+       JOIN customers c ON d.customer_id = c.id
+       LEFT JOIN drivers dr ON d.driver_id = dr.id
+       LEFT JOIN users u ON dr.user_id = u.id
+       WHERE d.customer_id = ?
+       ORDER BY d.created_at DESC`,
+      [customer_id]
+    );
+
+    if (rows.length === 0) {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="delivery_history.csv"');
+      return res.send('Order Number,Status,Priority,Scheduled Time,Delivered Time,Delivery Address,Assigned Driver,Delivery Notes,Date Placed\n');
+    }
+
+    const headers = Object.keys(rows[0]).map((h) => `"${h}"`).join(',');
+    const lines = rows.map((r) =>
+      Object.values(r).map((val) => {
+        if (val === null || val === undefined) return '""';
+        if (val instanceof Date) return `"${val.toISOString()}"`;
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      }).join(',')
+    );
+
+    const csvContent = [headers, ...lines].join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="delivery_history.csv"');
+    res.send(csvContent);
+  } catch (err) {
+    console.error("Customer export error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -703,4 +768,6 @@ module.exports = {
   deleteAddress,
   updateDeliveryAddress,
   getUpcomingOrdersCount,
+  exportDeliveries,
 };
+
