@@ -20,6 +20,25 @@ export interface ProofData {
   timestamp: number;
 }
 
+const resolveImageUrl = (url?: string | null): string => {
+  if (!url) return '';
+  if (
+    url.startsWith('data:') ||
+    url.startsWith('http://') ||
+    url.startsWith('https://')
+  ) {
+    return url;
+  }
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  const backendBase = (
+    import.meta.env.VITE_API_URL ||
+    import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.DEV ? 'http://localhost:5000' : '')
+  ).replace(/\/api\/?$/, '');
+
+  return `${backendBase}${cleanPath}`;
+};
+
 const ProofModal: React.FC<ProofModalProps> = ({
   delivery,
   isOpen,
@@ -289,8 +308,17 @@ const ProofModal: React.FC<ProofModalProps> = ({
                         Proof Photo
                       </h3>
                       <img
-                        src={viewProofData.photoUrl}
+                        src={resolveImageUrl(viewProofData.photoUrl)}
                         alt="Proof"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (
+                            !target.src.includes('localhost:5000') &&
+                            viewProofData.photoUrl?.startsWith('/uploads')
+                          ) {
+                            target.src = `http://localhost:5000${viewProofData.photoUrl}`;
+                          }
+                        }}
                         className="w-full h-48 object-cover rounded-xl border border-slate-200"
                       />
                     </div>
@@ -303,8 +331,17 @@ const ProofModal: React.FC<ProofModalProps> = ({
                       </h3>
                       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden p-2">
                         <img
-                          src={viewProofData.signature}
+                          src={resolveImageUrl(viewProofData.signature)}
                           alt="Signature"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            if (
+                              !target.src.includes('localhost:5000') &&
+                              viewProofData.signature?.startsWith('/uploads')
+                            ) {
+                              target.src = `http://localhost:5000${viewProofData.signature}`;
+                            }
+                          }}
                           className="w-full h-24 object-contain"
                         />
                       </div>
