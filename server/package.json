@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
-    "prestart": "powershell -Command \"try { $pids = (netstat -ano | Select-String '0.0.0.0:5000|:::5000' | ForEach-Object { $_.ToString().Trim().Split()[-1] } | Sort-Object -Unique); foreach ($p in $pids) { if ($p -match '^\\d+$') { taskkill /F /PID $p 2>$null } } } catch {}\"",
+    "clean-win": "powershell -Command \"try { $pids = (netstat -ano | Select-String '0.0.0.0:5000|:::5000' | ForEach-Object { $_.ToString().Trim().Split()[-1] } | Sort-Object -Unique); foreach ($p in $pids) { if ($p -match '^\\d+$') { taskkill /F /PID $p 2>$null } } } catch {}\"",
     "start": "node app.js",
     "dev": "node app.js"
   },
