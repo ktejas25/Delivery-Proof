@@ -19,6 +19,7 @@ interface DeliveryCardProps {
   onDetails: () => void;
   onRate?: () => void;
   onDispute?: () => void;
+  onTrack?: () => void;
 }
 
 const DeliveryCard: React.FC<DeliveryCardProps> = ({
@@ -26,6 +27,7 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({
   onDetails,
   onRate,
   onDispute,
+  onTrack,
 }) => {
   const currentStatus = useMemo(
     () =>
@@ -197,7 +199,16 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({
           />
         </button>
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {onTrack && (
+            <button
+              onClick={onTrack}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-2xl text-xs font-black transition-all active:scale-95 cursor-pointer"
+            >
+              <MapPin size={13} /> Radar
+            </button>
+          )}
+
           {currentStatus === "delivered" && onRate && (
             <button
               onClick={onRate}

@@ -4,6 +4,13 @@ const updateLocation = async (req, res) => {
   const { id: user_id } = req.user;
   const { lat, lng } = req.body;
 
+  const parsedLat = parseFloat(lat);
+  const parsedLng = parseFloat(lng);
+
+  if (isNaN(parsedLat) || isNaN(parsedLng)) {
+    return res.status(400).json({ message: "Invalid latitude or longitude" });
+  }
+
   try {
     await pool.query(
       `UPDATE drivers 
@@ -11,8 +18,50 @@ const updateLocation = async (req, res) => {
                  last_location_lng = ?, 
                  last_location_update = NOW()
              WHERE user_id = ?`,
-      [lat, lng, user_id],
+      [parsedLat, parsedLng, user_id],
     );
+
+    // Broadcast location to active deliveries and business dashboard
+    const io = req.app.get("io");
+    if (io) {
+      const [driverRows] = await pool.query(
+        `SELECT d.id as driver_id, u.business_id 
+         FROM drivers d 
+         JOIN users u ON d.user_id = u.id 
+         WHERE d.user_id = ?`,
+        [user_id]
+      );
+
+      if (driverRows.length > 0) {
+        const { driver_id, business_id } = driverRows[0];
+
+        // 1. Broadcast to business dashboard
+        if (business_id) {
+          io.to(`business_${business_id}`).emit("driver_location_updated", {
+            driverId: driver_id,
+            lat: parsedLat,
+            lng: parsedLng,
+            timestamp: new Date(),
+          });
+        }
+
+        // 2. Broadcast to all active deliveries assigned to this driver
+        const [activeDels] = await pool.query(
+          `SELECT uuid FROM deliveries 
+           WHERE driver_id = ? AND delivery_status IN ('pending', 'scheduled', 'dispatched', 'en_route', 'arrived')`,
+          [driver_id]
+        );
+
+        for (const del of activeDels) {
+          io.to(`delivery_${del.uuid}`).emit("location_updated", {
+            lat: parsedLat,
+            lng: parsedLng,
+            driverId: driver_id,
+            timestamp: new Date(),
+          });
+        }
+      }
+    }
 
     res.status(200).json({ success: true });
   } catch (error) {

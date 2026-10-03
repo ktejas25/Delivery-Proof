@@ -3,9 +3,7 @@ import {
   Sparkles,
   ShieldCheck,
   MapPin,
-  Clock,
   CheckCircle2,
-  AlertCircle,
   Truck,
   ArrowRight,
 } from 'lucide-react';
@@ -20,7 +18,7 @@ interface CustomerAIInsightsProps {
 
 export const CustomerAIInsights: React.FC<CustomerAIInsightsProps> = ({
   activeDeliveries,
-  deliveredCount,
+  deliveredCount: _deliveredCount,
   savedAddressesCount,
   onNavigateTab,
   onTrackDelivery,

@@ -25,13 +25,18 @@ const initSocket = (server) => {
         });
 
         socket.on('update_location', async (data) => {
-            // data: { deliveryUuid, lat, lng, driverId, businessId }
-            
-            // 1. Broadcast to delivery listeners
+            // data: { deliveryUuid, lat, lng, driverId, businessId, userId }
+            if (!data) return;
+            const parsedLat = parseFloat(data.lat);
+            const parsedLng = parseFloat(data.lng);
+            if (isNaN(parsedLat) || isNaN(parsedLng)) return;
+
+            // 1. Broadcast to specific delivery room if specified
             if (data.deliveryUuid) {
                 io.to(`delivery_${data.deliveryUuid}`).emit('location_updated', {
-                    lat: data.lat,
-                    lng: data.lng,
+                    lat: parsedLat,
+                    lng: parsedLng,
+                    driverId: data.driverId,
                     timestamp: new Date()
                 });
             }
@@ -40,22 +45,43 @@ const initSocket = (server) => {
             if (data.businessId) {
                 io.to(`business_${data.businessId}`).emit('driver_location_updated', {
                     driverId: data.driverId,
-                    lat: data.lat,
-                    lng: data.lng,
+                    lat: parsedLat,
+                    lng: parsedLng,
                     timestamp: new Date()
                 });
             }
 
             // 3. Persist to DB for initial loads/refreshes
-            if (data.driverId && data.lat && data.lng) {
-                try {
+            try {
+                if (data.driverId) {
                     await pool.query(
                         `UPDATE drivers SET last_location_lat = ?, last_location_lng = ?, last_location_update = NOW() WHERE id = ?`,
-                        [data.lat, data.lng, data.driverId]
+                        [parsedLat, parsedLng, data.driverId]
                     );
-                } catch (err) {
-                    console.error('Socket location update persistence error:', err);
+
+                    // If deliveryUuid wasn't explicitly passed, also broadcast to any active deliveries for this driver
+                    if (!data.deliveryUuid) {
+                        const [activeDels] = await pool.query(
+                            `SELECT uuid FROM deliveries WHERE driver_id = ? AND delivery_status IN ('pending', 'scheduled', 'dispatched', 'en_route', 'arrived')`,
+                            [data.driverId]
+                        );
+                        for (const del of activeDels) {
+                            io.to(`delivery_${del.uuid}`).emit('location_updated', {
+                                lat: parsedLat,
+                                lng: parsedLng,
+                                driverId: data.driverId,
+                                timestamp: new Date()
+                            });
+                        }
+                    }
+                } else if (data.userId) {
+                    await pool.query(
+                        `UPDATE drivers SET last_location_lat = ?, last_location_lng = ?, last_location_update = NOW() WHERE user_id = ?`,
+                        [parsedLat, parsedLng, data.userId]
+                    );
                 }
+            } catch (err) {
+                console.error('Socket location update persistence error:', err);
             }
         });
 

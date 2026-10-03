@@ -29,6 +29,7 @@ interface OrderDetailsModalProps {
   delivery: any;
   onClose: () => void;
   onAddressUpdated?: () => void;
+  onTrackOnRadar?: (delivery: any) => void;
   savedAddresses?: any[];
 }
 
@@ -56,6 +57,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
   delivery,
   onClose,
   onAddressUpdated,
+  onTrackOnRadar,
   savedAddresses = [],
 }) => {
   // Initialize with preloaded proof data from getDeliveries if available
@@ -219,7 +221,22 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
             </div>
 
             <div className="flex flex-col md:items-end gap-2">
-              <StatusBadge status={status} />
+              <div className="flex items-center gap-2">
+                {onTrackOnRadar && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onTrackOnRadar(delivery);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  >
+                    <MapPin size={13} className="text-indigo-600" />
+                    <span>View on Live Radar</span>
+                  </button>
+                )}
+                <StatusBadge status={status} />
+              </div>
               {status === 'delivered' && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600">
                   <CheckCircle size={13} />

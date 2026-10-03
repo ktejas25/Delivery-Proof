@@ -10,7 +10,6 @@ import {
   X,
   LogOut,
   Shield,
-  Sparkles,
 } from "lucide-react";
 
 export type CustomerTabId =

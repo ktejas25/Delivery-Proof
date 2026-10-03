@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -43,7 +43,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export const CustomerDeliveryChart: React.FC<CustomerDeliveryChartProps> = ({
   deliveries,
 }) => {
-  const [timeframe, setTimeframe] = useState<'monthly' | 'weekly'>('monthly');
 
   const chartData = useMemo(() => {
     if (!Array.isArray(deliveries) || deliveries.length === 0) {

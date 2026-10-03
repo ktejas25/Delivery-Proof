@@ -14,6 +14,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { io } from "socket.io-client";
 import { useDeliveries } from "../components/driver/hooks/useDeliveries";
 import { useGPS } from "../components/driver/hooks/useGPS";
 import { useShiftTimer } from "../components/driver/hooks/useShiftTimer";
@@ -108,6 +109,48 @@ const DriverDashboard: React.FC = () => {
   } = useDeliveries();
 
   const { status: gpsStatus, position: gpsPosition, getPosition } = useGPS();
+
+  // Real-time Driver GPS Telemetry Broadcasting for Customer Live Map Radar & Dashboard
+  useEffect(() => {
+    if (!gpsPosition?.lat || !gpsPosition?.lng) return;
+
+    // 1. Persist to backend database & trigger server-side socket broadcast
+    api
+      .post("/driver/location", {
+        lat: gpsPosition.lat,
+        lng: gpsPosition.lng,
+      })
+      .catch((err) => {
+        console.warn("Driver location sync failed:", err?.message);
+      });
+
+    // 2. Direct client socket emission for instant peer-to-peer updates
+    const socketUrl =
+      import.meta.env.VITE_SOCKET_URL ||
+      import.meta.env.VITE_API_BASE_URL ||
+      import.meta.env.VITE_API_URL ||
+      (import.meta.env.DEV ? "http://localhost:5000" : undefined);
+
+    const socket = socketUrl ? io(socketUrl) : io();
+    const activeDel = deliveries.find(
+      (d) =>
+        d.delivery_status === "in_transit" ||
+        (d.delivery_status as string) === "en_route" ||
+        d.delivery_status === "arrived"
+    );
+
+    socket.emit("update_location", {
+      deliveryUuid: activeDel?.uuid,
+      lat: gpsPosition.lat,
+      lng: gpsPosition.lng,
+      userId: user?.id,
+      businessId: user?.business_id,
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [gpsPosition?.lat, gpsPosition?.lng, deliveries, user?.id, user?.business_id]);
 
   // Central authoritative Duty Status & Shift State (Requirements 5, 9, 10, 19)
   const [dutyStatus, setDutyStatus] = useState<DutyStatus>(() => {

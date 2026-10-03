@@ -1,10 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard,
-  Truck,
   History,
-  Home,
   Search,
   Plus,
   MapPin,
@@ -17,15 +14,11 @@ import {
   ShieldCheck,
   CheckCircle2,
   Clock,
-  HelpCircle,
-  Phone,
   Copy,
   Check,
   FileText,
   ArrowRight,
   AlertTriangle,
-  Package,
-  FileSpreadsheet,
   Menu,
   Calendar,
 } from "lucide-react";
@@ -79,6 +72,16 @@ const CustomerDashboard = () => {
   const [selectedDelivery, setSelectedDelivery] = useState<any | null>(null);
   const [editingAddress, setEditingAddress] = useState<any | null>(null);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [selectedRadarUuid, setSelectedRadarUuid] = useState<string | null>(null);
+
+  const handleViewOnRadar = useCallback((deliveryOrUuid?: any) => {
+    if (typeof deliveryOrUuid === "string") {
+      setSelectedRadarUuid(deliveryOrUuid);
+    } else if (deliveryOrUuid?.uuid) {
+      setSelectedRadarUuid(deliveryOrUuid.uuid);
+    }
+    setActiveTab("radar");
+  }, []);
 
   // History Tab Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -399,12 +402,14 @@ const CustomerDashboard = () => {
                   <CustomerQuickActionsToolbar
                     onTrackLatest={() => {
                       if (activeDeliveries.length > 0) {
-                        setActiveTab("radar");
+                        handleViewOnRadar(activeDeliveries[0]);
+                      } else if (deliveries.length > 0) {
+                        handleViewOnRadar(deliveries[0]);
                       } else {
                         toast("No incoming packages at the moment.", { icon: "📦" });
                       }
                     }}
-                    onViewLiveMap={() => setActiveTab("radar")}
+                    onViewLiveMap={() => handleViewOnRadar()}
                     onAddAddress={handleAddAddress}
                     onRefresh={fetchData}
                     hasActiveOrders={activeDeliveries.length > 0}
@@ -415,7 +420,7 @@ const CustomerDashboard = () => {
                   {/* Primary 5-Card KPI Grid */}
                   <CustomerKpiGrid
                     stats={stats}
-                    onNavigateTab={(tabId) => setActiveTab(tabId)}
+                    onNavigateTab={(tabId) => setActiveTab(tabId as CustomerTabId)}
                   />
 
                   {/* Incoming Package Live Highlight Banner (if in-transit) */}
@@ -441,7 +446,7 @@ const CustomerDashboard = () => {
 
                       <div className="flex items-center gap-3 relative z-10 shrink-0">
                         <button
-                          onClick={() => setActiveTab("radar")}
+                          onClick={() => handleViewOnRadar(activeDeliveries[0])}
                           className="px-6 py-3.5 bg-white text-indigo-700 hover:bg-indigo-50 font-bold rounded-2xl text-xs uppercase tracking-wider transition-all shadow-md active:scale-95 flex items-center gap-2 cursor-pointer"
                         >
                           <MapPin size={16} />
@@ -470,8 +475,8 @@ const CustomerDashboard = () => {
                         activeDeliveries={activeDeliveries}
                         deliveredCount={stats.deliveredOrders}
                         savedAddressesCount={stats.totalAddresses}
-                        onNavigateTab={(tabId) => setActiveTab(tabId)}
-                        onTrackDelivery={() => setActiveTab("radar")}
+                        onNavigateTab={(tabId) => setActiveTab(tabId as CustomerTabId)}
+                        onTrackDelivery={(del) => handleViewOnRadar(del)}
                       />
                     </div>
                   </div>
@@ -504,7 +509,7 @@ const CustomerDashboard = () => {
 
                     {activeDeliveries.length > 0 && (
                       <button
-                        onClick={() => setActiveTab("radar")}
+                        onClick={() => handleViewOnRadar()}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
                       >
                         <MapPin size={14} />
@@ -526,6 +531,7 @@ const CustomerDashboard = () => {
                           delivery={delivery}
                           onDetails={() => handleDetails(delivery)}
                           onDispute={() => handleDispute(delivery)}
+                          onTrack={() => handleViewOnRadar(delivery)}
                         />
                       ))}
                     </motion.div>
@@ -563,6 +569,9 @@ const CustomerDashboard = () => {
 
                   <CustomerLiveMapTracker
                     activeDeliveries={activeDeliveries}
+                    allDeliveries={deliveries}
+                    selectedDeliveryUuid={selectedRadarUuid}
+                    onSelectDeliveryUuid={setSelectedRadarUuid}
                     onOpenDetails={handleDetails}
                   />
                 </div>
@@ -999,6 +1008,7 @@ const CustomerDashboard = () => {
             delivery={selectedDelivery}
             onClose={() => setSelectedDelivery(null)}
             onAddressUpdated={fetchData}
+            onTrackOnRadar={handleViewOnRadar}
             savedAddresses={addresses}
           />
         )}

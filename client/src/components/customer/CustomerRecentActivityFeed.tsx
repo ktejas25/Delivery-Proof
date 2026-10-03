@@ -2,8 +2,6 @@ import React from 'react';
 import {
   PackageCheck,
   Truck,
-  ShieldCheck,
-  Star,
   AlertTriangle,
   Clock,
   ArrowRight,

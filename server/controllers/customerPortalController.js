@@ -308,8 +308,16 @@ const getDeliveries = async (req, res) => {
           u.phone as driver_phone,
           dr.vehicle_type as driver_vehicle,
           dr.avg_rating as driver_avg_rating,
-          dr.last_location_lat as driver_lat,
-          dr.last_location_lng as driver_lng,
+          COALESCE(
+            dr.last_location_lat,
+            (SELECT latitude FROM location_tracking WHERE delivery_id = d.id ORDER BY recorded_at DESC LIMIT 1),
+            (SELECT latitude FROM location_tracking WHERE driver_id = dr.id ORDER BY recorded_at DESC LIMIT 1)
+          ) as driver_lat,
+          COALESCE(
+            dr.last_location_lng,
+            (SELECT longitude FROM location_tracking WHERE delivery_id = d.id ORDER BY recorded_at DESC LIMIT 1),
+            (SELECT longitude FROM location_tracking WHERE driver_id = dr.id ORDER BY recorded_at DESC LIMIT 1)
+          ) as driver_lng,
           d.photo_url as proof_photo,
           d.signature_url as proof_signature,
           dp.verification_score
@@ -322,9 +330,18 @@ const getDeliveries = async (req, res) => {
       ORDER BY d.created_at DESC`,
       [customer_id]
     );
+
+    const formatted = (results || []).map((r) => ({
+      ...r,
+      address_lat: r.address_lat != null ? parseFloat(r.address_lat) : null,
+      address_lng: r.address_lng != null ? parseFloat(r.address_lng) : null,
+      driver_lat: r.driver_lat != null ? parseFloat(r.driver_lat) : null,
+      driver_lng: r.driver_lng != null ? parseFloat(r.driver_lng) : null,
+      driver_avg_rating: r.driver_avg_rating != null ? parseFloat(r.driver_avg_rating) : null,
+    }));
     
-    console.log(`[DEBUG] Returning ${results.length} deliveries`);
-    res.json(results || []);
+    console.log(`[DEBUG] Returning ${formatted.length} deliveries`);
+    res.json(formatted);
   } catch (err) {
     console.error(`[DEBUG] getDeliveries error:`, err);
     res.status(500).json({ error: err.message });
@@ -361,15 +378,32 @@ const trackDelivery = async (req, res) => {
     const [rows] = await pool.query(
       `SELECT
           d.uuid,
+          d.order_number,
           d.delivery_status,
           d.scheduled_time,
           d.estimated_arrival,
+          d.actual_arrival,
+          d.delivery_notes,
           c.name as customer_name,
           c.address as customer_address,
+          ST_X(c.location) as delivery_lat,
+          ST_Y(c.location) as delivery_lng,
           dr.id as driver_id,
           CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) as driver_name,
-          dr.last_location_lat,
-          dr.last_location_lng
+          u.phone as driver_phone,
+          dr.vehicle_type as driver_vehicle,
+          dr.vehicle_plate as driver_vehicle_plate,
+          dr.avg_rating as driver_avg_rating,
+          COALESCE(
+            dr.last_location_lat,
+            (SELECT latitude FROM location_tracking WHERE delivery_id = d.id ORDER BY recorded_at DESC LIMIT 1),
+            (SELECT latitude FROM location_tracking WHERE driver_id = dr.id ORDER BY recorded_at DESC LIMIT 1)
+          ) as last_location_lat,
+          COALESCE(
+            dr.last_location_lng,
+            (SELECT longitude FROM location_tracking WHERE delivery_id = d.id ORDER BY recorded_at DESC LIMIT 1),
+            (SELECT longitude FROM location_tracking WHERE driver_id = dr.id ORDER BY recorded_at DESC LIMIT 1)
+          ) as last_location_lng
       FROM deliveries d
       JOIN customers c ON d.customer_id = c.id
       LEFT JOIN drivers dr ON d.driver_id = dr.id
@@ -377,7 +411,22 @@ const trackDelivery = async (req, res) => {
       WHERE d.uuid = ?`,
       [uuid]
     );
-    res.json(rows[0] || null);
+
+    if (!rows[0]) {
+      return res.status(404).json({ message: "Delivery not found" });
+    }
+
+    const row = rows[0];
+    const data = {
+      ...row,
+      delivery_lat: row.delivery_lat != null ? parseFloat(row.delivery_lat) : null,
+      delivery_lng: row.delivery_lng != null ? parseFloat(row.delivery_lng) : null,
+      last_location_lat: row.last_location_lat != null ? parseFloat(row.last_location_lat) : null,
+      last_location_lng: row.last_location_lng != null ? parseFloat(row.last_location_lng) : null,
+      driver_avg_rating: row.driver_avg_rating != null ? parseFloat(row.driver_avg_rating) : null,
+    };
+
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

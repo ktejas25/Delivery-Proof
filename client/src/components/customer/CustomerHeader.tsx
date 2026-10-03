@@ -5,10 +5,8 @@ import {
   LogOut,
   ChevronDown,
   Calendar,
-  Sparkles,
   Shield,
   Truck,
-  HelpCircle,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 import api from "../../services/api";
