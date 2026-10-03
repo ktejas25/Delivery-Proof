@@ -9,24 +9,26 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: "5000"
       - key: JWT_SECRET
         generateValue: true
       - key: DB_HOSTNAME
-        sync: false
+        value: mysql-265634-shoppingwithshopx-0ff0.j.aivencloud.com
       - key: DB_PORT
-        value: "3306"
+        value: "13111"
       - key: DB_USERNAME
-        sync: false
+        value: avnadmin
       - key: DB_PASSWORD
         sync: false
       - key: DB_SCHEMA
-        sync: false
+        value: defaultdb
       - key: DB_SSL
         value: "true"
       - key: CLOUDINARY_CLOUD_NAME
-        sync: false
+        value: dtvzlhrzw
       - key: CLOUDINARY_API_KEY
-        sync: false
+        value: "321829124669296"
       - key: CLOUDINARY_API_SECRET
         sync: false
       - key: CLOUDINARY_KEY_NAME
