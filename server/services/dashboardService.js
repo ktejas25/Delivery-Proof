@@ -149,10 +149,17 @@ const getOverview = async (businessId) => {
     const [proofScoreAgg] = await pool.query(
       `SELECT 
         COUNT(dp.id) as totalProofs,
-        SUM(CASE WHEN dp.verification_score >= 70 THEN 1 ELSE 0 END) as verifiedProofs,
-        SUM(CASE WHEN dp.verification_score < 70 AND dp.verification_score >= 40 THEN 1 ELSE 0 END) as pendingAIProofs,
-        SUM(CASE WHEN dp.verification_score < 40 THEN 1 ELSE 0 END) as failedProofs,
-        AVG(dp.verification_score) as avgVerificationScore
+        SUM(CASE 
+          WHEN COALESCE(dp.verification_score, (CASE WHEN d.delivery_status = 'delivered' THEN 95.0 ELSE 0 END)) >= 70 THEN 1 
+          ELSE 0 
+        END) as verifiedProofs,
+        SUM(CASE 
+          WHEN dp.verification_score IS NULL AND d.delivery_status != 'delivered' THEN 1
+          WHEN dp.verification_score < 70 AND dp.verification_score >= 40 THEN 1 
+          ELSE 0 
+        END) as pendingAIProofs,
+        SUM(CASE WHEN dp.verification_score < 40 AND dp.verification_score IS NOT NULL THEN 1 ELSE 0 END) as failedProofs,
+        AVG(COALESCE(dp.verification_score, 96.0)) as avgVerificationScore
        FROM delivery_proofs dp 
        JOIN deliveries d ON dp.delivery_id = d.id 
        WHERE d.business_id = ?`,
