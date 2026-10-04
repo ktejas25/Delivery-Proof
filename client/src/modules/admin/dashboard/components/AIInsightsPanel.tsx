@@ -67,7 +67,8 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ insights }) =>
   });
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col justify-between h-full">
+    <div className="group bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs hover:shadow-xl hover:border-purple-500/30 transition-all duration-300 flex flex-col justify-between h-full relative overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-fuchsia-500 to-indigo-500 opacity-90" />
       {/* Header */}
       <div>
         <div className="flex items-center justify-between mb-2">

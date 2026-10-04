@@ -49,18 +49,18 @@ export const QuickActionsToolbar: React.FC<QuickActionsToolbarProps> = ({
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:inline-block">
+    <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+      <div className="flex items-center gap-2.5 flex-wrap">
+        <span className="text-xs font-black text-slate-400 uppercase tracking-wider hidden sm:inline-block">
           Quick Actions:
         </span>
         <div className="flex flex-wrap items-center gap-2">
           {/* New Order */}
           <button
             onClick={onNewOrder}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow transition-all duration-150 active:scale-95"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow-md transition-all duration-200 active:scale-95 cursor-pointer"
           >
-            <PlusCircle size={15} />
+            <PlusCircle size={16} />
             <span>Create Order</span>
           </button>
 
