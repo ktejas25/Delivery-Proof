@@ -22,13 +22,14 @@ interface AdminKpiGridProps {
 
 export const AdminKpiGrid: React.FC<AdminKpiGridProps> = ({ summary, onNavigateTab }) => {
   const formatCurrency = (amount: number) => {
+    const symbol = summary?.currencySymbol || '₹';
     if (amount >= 1000000) {
-      return `${summary.currencySymbol}${(amount / 1000000).toFixed(1)}M`;
+      return `${symbol}${(amount / 1000000).toFixed(1)}M`;
     }
     if (amount >= 1000) {
-      return `${summary.currencySymbol}${(amount / 1000).toFixed(1)}K`;
+      return `${symbol}${(amount / 1000).toFixed(1)}K`;
     }
-    return `${summary.currencySymbol}${amount.toLocaleString()}`;
+    return `${symbol}${amount.toLocaleString()}`;
   };
 
   return (

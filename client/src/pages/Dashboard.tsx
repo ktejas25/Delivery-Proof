@@ -537,7 +537,7 @@ const Dashboard: React.FC = () => {
                       trendData={trends}
                       totalRevenue={overview.summary.revenue}
                       totalCustomers={overview.summary.customers}
-                      currencySymbol={overview.summary.currencySymbol}
+                      currencySymbol={overview.summary.currencySymbol || '₹'}
                     />
                   </div>
                   <div className="lg:col-span-5 min-w-0">
