@@ -71,7 +71,7 @@ const ShiftCompleteCard: React.FC<ShiftCompleteProps> = ({
         All <strong className="font-bold text-emerald-900">{completedCount} deliveries</strong> completed successfully.
       </p>
       <p className="text-xs text-emerald-600 mt-1">
-        Total route earnings: <strong className="text-lg font-bold text-emerald-900">${earnings.toFixed(2)}</strong>
+        Total route earnings: <strong className="text-lg font-bold text-emerald-900">₹{earnings.toFixed(2)}</strong>
       </p>
     </div>
     <button
@@ -563,7 +563,7 @@ const DriverDashboard: React.FC = () => {
     stop();
     reset();
     playDriverSound("complete");
-    toast.success(`Shift completed! Total earnings: $${earnings.toFixed(2)}`);
+    toast.success(`Shift completed! Total earnings: ₹${earnings.toFixed(2)}`);
   }, [deliveries, stop, reset]);
 
   // Page titles

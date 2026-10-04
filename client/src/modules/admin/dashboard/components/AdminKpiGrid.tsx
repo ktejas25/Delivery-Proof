@@ -4,7 +4,7 @@ import {
   CheckCircle2, 
   XCircle, 
   AlertTriangle, 
-  DollarSign, 
+  IndianRupee, 
   Users, 
   ShieldCheck, 
   TrendingUp, 
@@ -131,7 +131,7 @@ export const AdminKpiGrid: React.FC<AdminKpiGridProps> = ({ summary, onNavigateT
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Logistics Revenue</span>
           <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
-            <DollarSign size={18} />
+            <IndianRupee size={18} />
           </div>
         </div>
         <div>

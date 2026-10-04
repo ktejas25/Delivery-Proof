@@ -29,7 +29,7 @@ const getOperationalInsights = async (businessId) => {
       type: 'Business Performance',
       severity: 'LOW',
       title: 'Enterprise Revenue & Volume Momentum',
-      description: `Delivery fulfillment completed ${completedCount} orders ($${Math.round(estRevenue)} logistics revenue generated), trending 18% above previous operational period.`,
+      description: `Delivery fulfillment completed ${completedCount} orders (₹${Math.round(estRevenue)} logistics revenue generated), trending 18% above previous operational period.`,
       recommendation: 'Expand enterprise merchant onboarding across high-density delivery zones.',
       status: 'optimal',
       timestamp: new Date().toISOString(),

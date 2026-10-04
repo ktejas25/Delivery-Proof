@@ -1,5 +1,5 @@
 import React, { memo } from "react";
-import { Clock, DollarSign, PackageCheck, Route } from "lucide-react";
+import { Clock, IndianRupee, PackageCheck, Route } from "lucide-react";
 
 interface RouteProgressProps {
   total: number;
@@ -75,11 +75,11 @@ const RouteProgress: React.FC<RouteProgressProps> = memo(
 
           {/* Earnings */}
           <div className="flex items-center justify-center gap-1.5 text-slate-600 min-w-0">
-            <DollarSign size={14} className="text-emerald-600 flex-shrink-0" />
+            <IndianRupee size={14} className="text-emerald-600 flex-shrink-0" />
             <div className="truncate">
               <span className="text-slate-400 text-[11px] mr-1 hidden sm:inline">Earned</span>
               <span className="font-bold text-emerald-700 text-[11px] sm:text-xs">
-                ${totalEarnings.toFixed(0)}
+                ₹{totalEarnings.toFixed(0)}
               </span>
             </div>
           </div>

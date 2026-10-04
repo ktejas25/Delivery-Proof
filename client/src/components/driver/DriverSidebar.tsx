@@ -2,7 +2,7 @@ import React, { memo } from "react";
 import {
   Navigation,
   History,
-  DollarSign,
+  IndianRupee,
   User,
   PackageCheck,
   X,
@@ -58,10 +58,10 @@ const navItems: {
   {
     id: "earnings",
     label: "Earnings & Shifts",
-    icon: DollarSign,
+    icon: IndianRupee,
     getBadge: ({ totalEarnings }) =>
       totalEarnings > 0
-        ? { text: `$${totalEarnings.toFixed(0)}`, className: "bg-emerald-100 text-emerald-800" }
+        ? { text: `₹${totalEarnings.toFixed(0)}`, className: "bg-emerald-100 text-emerald-800" }
         : null,
   },
   {
@@ -206,7 +206,7 @@ const DriverSidebar: React.FC<DriverSidebarProps> = memo(
                 <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-200/60">
                   <span className="text-slate-500 font-medium">Earned Today</span>
                   <span className="font-bold text-emerald-700">
-                    ${totalEarnings.toFixed(0)}
+                    ₹{totalEarnings.toFixed(0)}
                   </span>
                 </div>
 

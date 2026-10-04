@@ -4,7 +4,7 @@ import {
   CheckCircle2, 
   XCircle, 
   AlertTriangle, 
-  DollarSign, 
+  IndianRupee, 
   Users, 
   Radio, 
   TrendingUp, 
@@ -185,7 +185,7 @@ export const DashboardKpiGrid: React.FC<DashboardKpiGridProps> = ({ summary, onN
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Logistics Revenue</span>
           <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-            <DollarSign size={20} />
+            <IndianRupee size={20} />
           </div>
         </div>
         <div>

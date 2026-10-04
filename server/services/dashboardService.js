@@ -105,7 +105,7 @@ const getOverview = async (businessId) => {
     );
 
     // 7. Revenue Calculations
-    // Calculated based on completed deliveries standard logistics rate ($25.00 base standard) or invoice amount
+    // Calculated based on completed deliveries standard logistics rate (₹25.00 base standard) or invoice amount
     const [invoiceRevenue] = await pool.query(
       `SELECT COALESCE(SUM(amount_paid), 0) as invoiceTotal 
        FROM invoices 
@@ -247,8 +247,8 @@ const getOverview = async (businessId) => {
         disputedChange: calculatePercentageChange(current30d[0]?.disputed30d || 0, previous30d[0]?.disputedPrev30d || 0),
         revenue: Number(calculatedRevenue),
         revenueChange: revenueGrowth,
-        currency: 'USD',
-        currencySymbol: '$',
+        currency: 'INR',
+        currencySymbol: '₹',
         customers: Number(customerStats[0]?.totalCustomers || 0),
         customerChange: calculatePercentageChange(customerStats[0]?.totalCustomers || 0, prevCustomerStats[0]?.prevCustomers || 0),
         activeUsers: Number(userStats[0]?.activeUsers || userStats[0]?.totalUsers || 1),

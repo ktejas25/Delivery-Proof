@@ -1,5 +1,5 @@
 import React from "react";
-import { Navigation, History, DollarSign, User } from "lucide-react";
+import { Navigation, History, IndianRupee, User } from "lucide-react";
 import { cn } from "../utils";
 
 export type DriverTab = "route" | "history" | "earnings" | "profile";
@@ -30,7 +30,7 @@ const DriverBottomNav: React.FC<DriverBottomNavProps> = ({
     {
       id: "earnings",
       label: "Earnings",
-      icon: DollarSign,
+      icon: IndianRupee,
     },
     {
       id: "profile",

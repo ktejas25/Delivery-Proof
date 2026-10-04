@@ -1,6 +1,6 @@
 import React, { memo } from "react";
 import {
-  DollarSign,
+  IndianRupee,
   Clock,
   CheckCircle2,
   TrendingUp,
@@ -37,7 +37,7 @@ const DriverEarningsView: React.FC<DriverEarningsViewProps> = memo(
           <div className="relative z-10 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-100 flex items-center gap-1.5">
-                <DollarSign size={14} />
+                <IndianRupee size={14} />
                 Today's Earnings
               </span>
               <span className="bg-white/20 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
@@ -48,7 +48,7 @@ const DriverEarningsView: React.FC<DriverEarningsViewProps> = memo(
 
             <div>
               <h1 className="text-3xl sm:text-4xl font-black tracking-tight">
-                ${totalEarnings.toFixed(2)}
+                ₹{totalEarnings.toFixed(2)}
               </h1>
               <p className="text-xs text-emerald-100 mt-1 font-medium">
                 {completedDeliveries.length} completed drops across this shift
@@ -72,7 +72,7 @@ const DriverEarningsView: React.FC<DriverEarningsViewProps> = memo(
                   <TrendingUp size={12} />
                   <span>Avg / Drop</span>
                 </div>
-                <p className="font-bold text-sm">${avgPerDelivery.toFixed(0)}</p>
+                <p className="font-bold text-sm">₹{avgPerDelivery.toFixed(0)}</p>
               </div>
             </div>
           </div>
@@ -149,7 +149,7 @@ const DriverEarningsView: React.FC<DriverEarningsViewProps> = memo(
 
                     <div className="text-right flex-shrink-0">
                       <span className="font-bold text-sm text-emerald-700">
-                        +${payout.toFixed(2)}
+                        +₹{payout.toFixed(2)}
                       </span>
                       <p className="text-[10px] text-slate-400">
                         {formatTime(delivery.scheduled_time)}

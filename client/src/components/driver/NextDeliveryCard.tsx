@@ -196,7 +196,7 @@ const NextDeliveryCard: React.FC<NextDeliveryCardProps> = React.memo(
               )}
               {delivery.earnings && (
                 <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md text-[11px]">
-                  +${delivery.earnings.toFixed(0)}
+                  +₹{delivery.earnings.toFixed(0)}
                 </span>
               )}
             </div>

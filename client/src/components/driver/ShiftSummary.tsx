@@ -1,5 +1,5 @@
 import React, { memo } from "react";
-import { Clock, DollarSign, MapPin, CheckCircle2, ShieldCheck, Zap, AlertCircle } from "lucide-react";
+import { Clock, IndianRupee, MapPin, CheckCircle2, ShieldCheck, Zap, AlertCircle } from "lucide-react";
 import { GPSStatus } from "./types";
 import { cn } from "./utils";
 
@@ -61,11 +61,11 @@ const ShiftSummary: React.FC<ShiftSummaryProps> = memo(
             {/* Earnings */}
             <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-100">
               <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-medium mb-1">
-                <DollarSign size={13} className="text-emerald-600" />
+                <IndianRupee size={13} className="text-emerald-600" />
                 <span>Today's Earnings</span>
               </div>
               <p className="text-base font-bold text-emerald-800">
-                ${totalEarnings.toFixed(2)}
+                ₹{totalEarnings.toFixed(2)}
               </p>
             </div>
 

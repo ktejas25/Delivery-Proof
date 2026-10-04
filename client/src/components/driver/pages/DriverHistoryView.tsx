@@ -215,7 +215,7 @@ const DriverHistoryView: React.FC<DriverHistoryViewProps> = memo(
                     <span className="text-slate-500 font-semibold">
                       Payout:{" "}
                       <strong className="text-emerald-700 font-bold">
-                        +${(delivery.earnings || 50).toFixed(2)}
+                        +₹{(delivery.earnings || 50).toFixed(2)}
                       </strong>
                     </span>
 

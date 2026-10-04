@@ -430,7 +430,7 @@ const DriverRouteMap: React.FC<DriverRouteMapProps> = ({
                     </span>
                     {delivery.earnings && (
                       <span className="font-bold text-emerald-700">
-                        +${delivery.earnings}
+                        +₹{delivery.earnings}
                       </span>
                     )}
                   </div>

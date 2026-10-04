@@ -48,7 +48,7 @@ export const RevenueCustomerChart: React.FC<RevenueCustomerChartProps> = ({
   trendData,
   totalRevenue,
   totalCustomers,
-  currencySymbol = '$'
+  currencySymbol = '₹'
 }) => {
   const [timeframe, setTimeframe] = useState<'30d' | '7d' | 'today'>('30d');
 
@@ -147,7 +147,7 @@ export const RevenueCustomerChart: React.FC<RevenueCustomerChartProps> = ({
               <Area
                 type="monotone"
                 dataKey="revenue"
-                name="Logistics Revenue ($)"
+                name={`Logistics Revenue (${currencySymbol})`}
                 stroke="#6366f1"
                 strokeWidth={2.5}
                 fillOpacity={1}
