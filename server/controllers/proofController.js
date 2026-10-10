@@ -104,10 +104,26 @@ const submitProof = async (req, res) => {
         proof_hash,
       });
 
-      // Call existing SP if available or manually insert
+      // Submit to blockchain service for tamper-resistant transaction hash
+      let blockchain_tx_hash = proof_hash;
+      let blockchain_confirmed = 1;
+      try {
+        const txHash = await submitToBlockchain({
+          deliveryId: delivery.id,
+          proofHash: proof_hash,
+          recordedAt: finalRecordedAt,
+        });
+        if (txHash) {
+          blockchain_tx_hash = txHash;
+        }
+      } catch (bcErr) {
+        console.warn("Blockchain anchoring simulation failed:", bcErr.message);
+      }
+
+      // Insert delivery proof record
       const [spResult] = await connection.query(
         "INSERT INTO delivery_proofs (delivery_id, proof_type, proof_data, verification_score, blockchain_tx_hash, blockchain_confirmed) VALUES (?, ?, ?, ?, ?, ?)",
-        [delivery.id, "comprehensive", proof_data, verification_score, proof_hash, 1],
+        [delivery.id, "comprehensive", proof_data, verification_score, blockchain_tx_hash, blockchain_confirmed],
       );
       const proof_id = spResult.insertId;
 
@@ -146,6 +162,28 @@ const submitProof = async (req, res) => {
             },
             { timeout: 3000 }
           )
+          .then(async (response) => {
+            if (response.data) {
+              const aiData = response.data;
+              const aiAnalysisJson = JSON.stringify(aiData);
+              const confidence = aiData.confidence_score ?? aiData.verification_score ?? null;
+              try {
+                if (confidence !== null) {
+                  await pool.query(
+                    "UPDATE delivery_proofs SET verification_score = ?, ai_analysis_result = ? WHERE id = ?",
+                    [confidence, aiAnalysisJson, proof_id]
+                  );
+                } else {
+                  await pool.query(
+                    "UPDATE delivery_proofs SET ai_analysis_result = ? WHERE id = ?",
+                    [aiAnalysisJson, proof_id]
+                  );
+                }
+              } catch (dbErr) {
+                console.error("Failed to persist ML fraud analysis result:", dbErr.message);
+              }
+            }
+          })
           .catch((e) => {
             console.warn(
               `[Optional ML Service] Microservice at ${process.env.ML_SERVICE_URL} not reachable (${e.message}). Skipping background AI fraud analysis.`

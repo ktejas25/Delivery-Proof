@@ -31,8 +31,6 @@ interface AuthContextType {
     last_name?: string;
     business_name?: string;
   }) => Promise<void>;
-  customerLogin: (email: string, password: string) => Promise<void>;
-  customerRegister: (data: any) => Promise<void>;
   changePassword: (new_password: string, confirm_password: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
@@ -99,19 +97,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.setItem("user", JSON.stringify(user));
   };
 
-  const customerLogin = async (email: string, password: string) => {
-    const response = await api.post("/customer/login", { email, password });
-    const { token, user } = response.data;
-    setToken(token);
-    setUser(user);
-    localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(user));
-  };
-
-  const customerRegister = async (data: any) => {
-    await api.post("/customer/register", data);
-  };
-
   const changePassword = async (new_password: string, confirm_password: string) => {
     const response = await api.post("/auth/change-password", {
       new_password,
@@ -152,8 +137,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         login,
         register,
         googleLogin,
-        customerLogin,
-        customerRegister,
         changePassword,
         logout,
         loading,
