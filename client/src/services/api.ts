@@ -17,14 +17,22 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     return config;
 });
 
+let isRedirecting = false;
+
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        const isUpload = error.config && error.config.url && (error.config.url.includes('/upload') || error.config.url.includes('/proof'));
-        if (error.response && (error.response.status === 401 || error.response.status === 403) && !isUpload) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/login';
+        const url = error.config?.url || '';
+        const isUpload = url.includes('/upload') || url.includes('/proof');
+        const isAuthEndpoint = url.includes('/auth/login') || url.includes('/customer/login');
+
+        if (error.response && (error.response.status === 401 || error.response.status === 403) && !isUpload && !isAuthEndpoint) {
+            if (!isRedirecting && window.location.pathname !== '/login') {
+                isRedirecting = true;
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }
