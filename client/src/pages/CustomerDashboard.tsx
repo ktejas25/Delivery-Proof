@@ -47,6 +47,7 @@ import AddressModal from "../components/customer/AddressModal";
 import StatusBadge, { DeliveryStatus } from "../components/ui/StatusBadge";
 import { SkeletonList } from "../components/ui/SkeletonCard";
 import DashboardEmptyState from "../components/ui/DashboardEmptyState";
+import AppRefreshOverlay from "../components/ui/AppRefreshOverlay";
 
 const CustomerDashboard = () => {
   const { user, logout } = useAuth();
@@ -57,6 +58,7 @@ const CustomerDashboard = () => {
   const [deliveries, setDeliveries] = useState<any[]>([]);
   const [addresses, setAddresses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -89,8 +91,12 @@ const CustomerDashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (isLocal = false) => {
+    if (isLocal) {
+      setIsRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     try {
       const [delRes, addrRes] = await Promise.all([
         api.get("/customer/deliveries"),
@@ -102,9 +108,10 @@ const CustomerDashboard = () => {
     } catch (err) {
       console.error("Failed to load customer dashboard data", err);
       toast.error("Failed to load dashboard data. Retrying...");
-      setTimeout(fetchData, 4000);
+      setTimeout(() => fetchData(false), 4000);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }, []);
 
@@ -278,7 +285,16 @@ const CustomerDashboard = () => {
     .toUpperCase();
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC] text-slate-800 font-sans overflow-hidden">
+    <div className="flex h-screen bg-[#F8FAFC] text-slate-800 font-sans overflow-hidden relative">
+      {/* Branded Local Refresh Overlay */}
+      {isRefreshing && (
+        <AppRefreshOverlay
+          fullScreen
+          message="Refreshing..."
+          submessage="Updating deliveries, live tracking & radar..."
+        />
+      )}
+
       {/* 1. AppShell Sidebar */}
       <CustomerSidebar
         activeTab={activeTab}
@@ -411,9 +427,9 @@ const CustomerDashboard = () => {
                     }}
                     onViewLiveMap={() => handleViewOnRadar()}
                     onAddAddress={handleAddAddress}
-                    onRefresh={fetchData}
+                    onRefresh={() => fetchData(true)}
                     hasActiveOrders={activeDeliveries.length > 0}
-                    loading={loading}
+                    loading={isRefreshing || loading}
                     lastUpdated={lastUpdated}
                   />
 

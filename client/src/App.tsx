@@ -13,12 +13,21 @@ import DriverDashboard from "./pages/DriverDashboard";
 import CustomerDashboard from "./pages/CustomerDashboard";
 import ForceChangePasswordModal from "./components/ForceChangePasswordModal";
 import { Toaster } from "react-hot-toast";
+import AppRefreshOverlay from "./components/ui/AppRefreshOverlay";
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const { token, loading } = useAuth();
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <AppRefreshOverlay
+        fullScreen
+        message="Loading..."
+        submessage="Verifying session and security credentials"
+      />
+    );
+  }
   if (!token) return <Navigate to="/login" />;
   return (
     <>

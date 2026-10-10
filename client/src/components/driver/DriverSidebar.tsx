@@ -4,7 +4,6 @@ import {
   History,
   IndianRupee,
   User,
-  PackageCheck,
   X,
   LogOut,
   Clock,
@@ -111,14 +110,18 @@ const DriverSidebar: React.FC<DriverSidebarProps> = memo(
             {/* Branding Header */}
             <div className="flex items-center justify-between mb-7 px-1">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-blue-500/20">
-                  <PackageCheck size={20} />
+                <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm flex items-center justify-center border border-slate-100">
+                  <img
+                    src="/deliveryproof_app_icon_large_original.png"
+                    alt="DeliveryProof Logo"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div>
                   <h1 className="font-extrabold text-slate-900 text-base tracking-tight leading-none">
                     DeliveryProof
                   </h1>
-                  <span className="text-[10px] font-bold text-blue-600 tracking-wider uppercase">
+                  <span className="text-[10px] font-bold text-emerald-600 tracking-wider uppercase">
                     Driver Command
                   </span>
                 </div>

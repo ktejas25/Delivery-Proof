@@ -38,7 +38,13 @@ interface AuthContextType {
   loading: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext: React.Context<AuthContextType | undefined> =
+  (typeof window !== "undefined" && (window as any).__AUTH_CONTEXT__) ||
+  createContext<AuthContextType | undefined>(undefined);
+
+if (typeof window !== "undefined") {
+  (window as any).__AUTH_CONTEXT__ = AuthContext;
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,

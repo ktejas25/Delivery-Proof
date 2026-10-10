@@ -6,7 +6,6 @@ import {
   History,
   Home,
   HelpCircle,
-  PackageCheck,
   X,
   LogOut,
   Shield,
@@ -85,14 +84,18 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
           {/* Logo & Portal Branding */}
           <div className="flex items-center justify-between mb-7 px-2">
             <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black shadow-md shadow-blue-500/20 shrink-0">
-                <PackageCheck size={22} />
+              <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm flex items-center justify-center border border-slate-100 shrink-0">
+                <img
+                  src="/deliveryproof_app_icon_large_original.png"
+                  alt="DeliveryProof Logo"
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div>
                 <h2 className="font-extrabold text-slate-900 text-base tracking-tight leading-none">
-                  Delivery<span className="text-blue-600">Proof</span>
+                  Delivery<span className="text-emerald-600">Proof</span>
                 </h2>
-                <span className="text-[10px] font-bold text-indigo-600 tracking-wider uppercase">
+                <span className="text-[10px] font-bold text-emerald-600 tracking-wider uppercase">
                   Customer Portal
                 </span>
               </div>

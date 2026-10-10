@@ -14,8 +14,7 @@ import {
   Navigation,
   ChevronDown,
   Calendar,
-  CheckCircle2,
-  PackageCheck
+  CheckCircle2
 } from "lucide-react";
 import io from "socket.io-client";
 import api from "../services/api";
@@ -46,6 +45,7 @@ import { RecentActivityFeed } from "../modules/admin/dashboard/components/Recent
 import { GlobalSearchDropdown } from "../modules/admin/dashboard/components/GlobalSearchDropdown";
 import { DashboardSkeleton } from "../modules/admin/dashboard/components/DashboardSkeleton";
 import { QuickActionsToolbar } from "../modules/admin/dashboard/components/QuickActionsToolbar";
+import AppRefreshOverlay from "../components/ui/AppRefreshOverlay";
 
 // Types
 import {
@@ -76,6 +76,7 @@ const Dashboard: React.FC = () => {
 
   // Loading & Error States
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [trendsLoading, setTrendsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -112,11 +113,14 @@ const Dashboard: React.FC = () => {
     };
   }, []);
 
-  // 1. Fetch Overview & Enterprise Dashboard Data
-  const fetchDashboardData = useCallback(async () => {
+  // 1. Fetch Overview & Enterprise Dashboard Data (Resilient)
+  const fetchDashboardData = useCallback(async (isLocalRefresh = false) => {
+    if (isLocalRefresh) {
+      setIsRefreshing(true);
+    }
     try {
       setError(null);
-      const [overviewRes, driversRes, fleetRes, insightsRes, activityRes] = await Promise.all([
+      const results = await Promise.allSettled([
         api.get("/admin/dashboard/overview"),
         api.get("/admin/dashboard/drivers?limit=5"),
         api.get("/admin/dashboard/fleet"),
@@ -124,21 +128,39 @@ const Dashboard: React.FC = () => {
         api.get("/admin/dashboard/activity?limit=10")
       ]);
 
-      setOverview(overviewRes.data);
-      setTopDrivers(driversRes.data);
-      setFleetOverview(fleetRes.data);
-      setAiInsights(insightsRes.data);
-      const activityList = Array.isArray(activityRes.data?.activities)
-        ? activityRes.data.activities
-        : Array.isArray(activityRes.data)
-        ? activityRes.data
-        : [];
-      setRecentActivities(activityList);
+      const [overviewRes, driversRes, fleetRes, insightsRes, activityRes] = results;
+
+      if (overviewRes.status === "fulfilled") {
+        setOverview(overviewRes.value.data);
+      } else {
+        console.error("Dashboard overview error:", overviewRes.reason);
+        setError(overviewRes.reason?.response?.data?.message || "Failed to load enterprise administration metrics");
+      }
+
+      if (driversRes.status === "fulfilled") {
+        setTopDrivers(driversRes.value.data);
+      }
+      if (fleetRes.status === "fulfilled") {
+        setFleetOverview(fleetRes.value.data);
+      }
+      if (insightsRes.status === "fulfilled") {
+        setAiInsights(insightsRes.value.data);
+      }
+      if (activityRes.status === "fulfilled") {
+        const actData = activityRes.value.data;
+        const activityList = Array.isArray(actData?.activities)
+          ? actData.activities
+          : Array.isArray(actData)
+          ? actData
+          : [];
+        setRecentActivities(activityList);
+      }
     } catch (err: any) {
       console.error("Dashboard fetch error:", err);
       setError(err.response?.data?.message || "Failed to load enterprise administration metrics");
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }, []);
 
@@ -155,8 +177,17 @@ const Dashboard: React.FC = () => {
     }
   }, []);
 
+  // 3. User-Initiated Local Refresh
+  const handleLocalRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await Promise.all([
+      fetchDashboardData(true),
+      fetchTrendData(selectedTrendRange)
+    ]);
+  }, [fetchDashboardData, fetchTrendData, selectedTrendRange]);
+
   useEffect(() => {
-    fetchDashboardData();
+    fetchDashboardData(false);
     fetchTrendData(selectedTrendRange);
   }, [fetchDashboardData, fetchTrendData, selectedTrendRange]);
 
@@ -197,7 +228,16 @@ const Dashboard: React.FC = () => {
   const roleLabel = user?.user_type === 'admin' ? 'Enterprise Administrator' : 'Operations Manager';
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC] text-slate-800 font-sans overflow-hidden">
+    <div className="flex h-screen bg-[#F8FAFC] text-slate-800 font-sans overflow-hidden relative">
+      {/* Branded Local Refresh Overlay */}
+      {isRefreshing && (
+        <AppRefreshOverlay
+          fullScreen
+          message="Refreshing..."
+          submessage="Syncing real-time enterprise metrics & fleet telemetry..."
+        />
+      )}
+
       {/* 1. AppShell Sidebar */}
       <aside className={`
         fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200/80 p-5 flex flex-col justify-between transition-transform duration-300 md:relative md:translate-x-0
@@ -207,14 +247,18 @@ const Dashboard: React.FC = () => {
           {/* Logo & Enterprise Branding */}
           <div className="flex items-center justify-between mb-6 px-2">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-blue-500/20">
-                <PackageCheck size={19} />
+              <div className="w-9 h-9 rounded-xl overflow-hidden shadow-sm flex items-center justify-center border border-slate-100">
+                <img
+                  src="/deliveryproof_app_icon_large_original.png"
+                  alt="DeliveryProof Logo"
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div>
                 <h2 className="font-extrabold text-slate-900 text-base tracking-tight leading-none">
                   DeliveryProof
                 </h2>
-                <span className="text-[10px] font-bold text-blue-600 tracking-wider uppercase">
+                <span className="text-[10px] font-bold text-emerald-600 tracking-wider uppercase">
                   Enterprise Suite
                 </span>
               </div>
@@ -387,6 +431,15 @@ const Dashboard: React.FC = () => {
 
           {/* Right: Date, Notifications, Profile Dropdown */}
           <div className="flex items-center gap-3">
+            {/* Quick Refresh Button */}
+            <button
+              onClick={handleLocalRefresh}
+              className="p-2 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors relative cursor-pointer"
+              title="Refresh enterprise metrics"
+            >
+              <RefreshCw size={17} className={isRefreshing ? "animate-spin text-blue-600" : ""} />
+            </button>
+
             {/* Live Date Pill */}
             <span className="hidden xl:inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
               <Calendar size={13} className="text-slate-400" />
@@ -465,15 +518,15 @@ const Dashboard: React.FC = () => {
         {/* Scrollable Main Content Container */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 lg:p-8">
           {activeTab === "Dashboard" ? (
-            loading ? (
+            loading && !overview ? (
               <DashboardSkeleton />
-            ) : error ? (
+            ) : error && !overview ? (
               <div className="p-8 text-center bg-white rounded-2xl border border-red-100 shadow-xs max-w-lg mx-auto mt-10">
                 <AlertTriangle size={36} className="text-red-500 mx-auto mb-3" />
                 <h3 className="text-base font-bold text-slate-900 mb-1">Unable to Load Enterprise Metrics</h3>
                 <p className="text-xs text-slate-500 mb-4">{error}</p>
                 <button
-                  onClick={fetchDashboardData}
+                  onClick={handleLocalRefresh}
                   className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
                 >
                   <RefreshCw size={14} /> Retry
@@ -504,8 +557,8 @@ const Dashboard: React.FC = () => {
                 <QuickActionsToolbar
                   onNewOrder={() => setShowNewOrderModal(true)}
                   onAddDriver={() => setShowAddDriverModal(true)}
-                  onRefresh={fetchDashboardData}
-                  loading={loading}
+                  onRefresh={handleLocalRefresh}
+                  loading={isRefreshing || loading}
                 />
 
                 {/* 3. Primary KPI Grid (8 Equal Height Cards) */}
@@ -522,7 +575,7 @@ const Dashboard: React.FC = () => {
                       selectedRange={selectedTrendRange}
                       onRangeChange={handleRangeChange}
                       loading={trendsLoading}
-                      onRefresh={() => fetchTrendData(selectedTrendRange)}
+                      onRefresh={handleLocalRefresh}
                     />
                   </div>
                   <div className="lg:col-span-4 min-w-0">
@@ -562,7 +615,7 @@ const Dashboard: React.FC = () => {
                   <div className="lg:col-span-6 min-w-0">
                     <SystemHealthCard
                       services={overview.systemHealth}
-                      onRefresh={fetchDashboardData}
+                      onRefresh={handleLocalRefresh}
                     />
                   </div>
                 </div>
@@ -601,7 +654,19 @@ const Dashboard: React.FC = () => {
                   />
                 </div>
               </div>
-            ) : null
+            ) : (
+              <div className="p-8 text-center bg-white rounded-2xl border border-slate-100 shadow-xs max-w-lg mx-auto mt-10">
+                <AlertTriangle size={36} className="text-amber-500 mx-auto mb-3" />
+                <h3 className="text-base font-bold text-slate-900 mb-1">No Metrics Available</h3>
+                <p className="text-xs text-slate-500 mb-4">Click below to fetch real-time enterprise metrics.</p>
+                <button
+                  onClick={handleLocalRefresh}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors inline-flex items-center gap-2 cursor-pointer"
+                >
+                  <RefreshCw size={14} /> Refresh Dashboard
+                </button>
+              </div>
+            )
           ) : activeTab === "FleetOps" && fleetOverview ? (
             <FleetOperationsView
               fleet={fleetOverview}
