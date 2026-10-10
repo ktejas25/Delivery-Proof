@@ -349,7 +349,20 @@ const CustomerDashboard = () => {
               })}
             </span>
 
-            <NotificationBell count={activeDeliveries.length} />
+
+            <NotificationBell
+              deliveries={deliveries}
+              count={activeDeliveries.length}
+              onSelectDelivery={(del) => {
+                setSelectedDelivery(del);
+              }}
+              onViewRadar={(del) => {
+                handleViewOnRadar(del);
+              }}
+              onNavigateTab={(tabId) => {
+                setActiveTab(tabId as CustomerTabId);
+              }}
+            />
 
             <div className="flex items-center gap-2.5 pl-3 border-l border-slate-100">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import {
-  PackageCheck,
   LogOut,
   ChevronDown,
   Calendar,
@@ -13,12 +12,22 @@ import api from "../../services/api";
 
 interface CustomerHeaderProps {
   user: any;
+  deliveries?: any[];
+  onSelectDelivery?: (delivery: any) => void;
+  onViewRadar?: (delivery: any) => void;
   onNavigateTab?: (tabId: string) => void;
 }
 
-const CustomerHeader: React.FC<CustomerHeaderProps> = ({ user, onNavigateTab }) => {
+const CustomerHeader: React.FC<CustomerHeaderProps> = ({
+  user,
+  deliveries: propDeliveries,
+  onSelectDelivery,
+  onViewRadar,
+  onNavigateTab,
+}) => {
   const { logout } = useAuth();
   const [upcomingOrdersCount, setUpcomingOrdersCount] = useState(0);
+  const [internalDeliveries, setInternalDeliveries] = useState<any[]>([]);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -32,7 +41,15 @@ const CustomerHeader: React.FC<CustomerHeaderProps> = ({ user, onNavigateTab }) 
       }
     };
     fetchUpcomingOrdersCount();
-  }, []);
+
+    if (!propDeliveries) {
+      api.get("/customer/deliveries")
+        .then((res) => {
+          if (Array.isArray(res.data)) setInternalDeliveries(res.data);
+        })
+        .catch(() => {});
+    }
+  }, [propDeliveries]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -69,8 +86,12 @@ const CustomerHeader: React.FC<CustomerHeaderProps> = ({ user, onNavigateTab }) 
         <div className="flex items-center justify-between h-18">
           {/* Left: Brand & Suite Title */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
-              <PackageCheck size={20} />
+            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-xs flex items-center justify-center border border-slate-100 shrink-0">
+              <img
+                src="/deliveryproof_app_icon_large_original.png"
+                alt="DeliveryProof Logo"
+                className="w-full h-full object-cover"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -120,7 +141,13 @@ const CustomerHeader: React.FC<CustomerHeaderProps> = ({ user, onNavigateTab }) 
 
           {/* Right: Notifications & User Profile Menu */}
           <div className="flex items-center gap-3 md:gap-4">
-            <NotificationBell count={upcomingOrdersCount} />
+            <NotificationBell
+              deliveries={propDeliveries || internalDeliveries}
+              count={upcomingOrdersCount}
+              onSelectDelivery={onSelectDelivery}
+              onViewRadar={onViewRadar}
+              onNavigateTab={onNavigateTab}
+            />
 
             {/* User Dropdown */}
             <div ref={profileDropdownRef} className="relative">

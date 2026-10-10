@@ -1,68 +1,71 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Bell,
-  AlertTriangle,
+  CheckCircle2,
   Truck,
   PackageCheck,
   Clock,
   X,
   Check,
+  FileText,
   ChevronRight,
+  Flame,
+  AlertCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Delivery } from "../types";
+import { calculateSLAStatus } from "../utils";
 
-export interface CustomerNotificationItem {
+export interface DriverNotificationItem {
   id: string;
   orderNumber: string;
   title: string;
   message: string;
   timestamp: string;
-  type: "success" | "warning" | "info" | "neutral";
+  type: "urgent" | "in_transit" | "sla" | "instruction" | "delivered" | "exception";
   statusTag: string;
-  delivery: any;
-  actionType: "radar" | "details" | "dispute";
+  delivery: Delivery;
+  actionType: "route" | "proof" | "issue" | "history";
   actionLabel: string;
 }
 
-interface NotificationBellProps {
-  deliveries?: any[];
-  count?: number;
-  onSelectDelivery?: (delivery: any) => void;
-  onViewRadar?: (delivery: any) => void;
-  onNavigateTab?: (tabId: string) => void;
+interface DriverNotificationDropdownProps {
+  deliveries: Delivery[];
+  onSelectDelivery: (delivery: Delivery) => void;
+  onOpenProofModal?: (delivery: Delivery, mode?: "upload" | "view") => void;
+  onOpenIssueModal?: (delivery: Delivery) => void;
+  onNavigateTab?: (tab: "route" | "history" | "earnings" | "profile") => void;
 }
 
 const formatRelativeTime = (timestamp?: string): string => {
-  if (!timestamp) return "Recently";
+  if (!timestamp) return "Today";
   try {
     const now = new Date();
     const past = new Date(timestamp);
-    if (isNaN(past.getTime())) return "Recently";
+    if (isNaN(past.getTime())) return "Today";
 
     const diffInMinutes = Math.floor((now.getTime() - past.getTime()) / (1000 * 60));
     if (diffInMinutes < 1) return "Just now";
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
     const diffInHours = Math.floor(diffInMinutes / 60);
     if (diffInHours < 24) return `${diffInHours}h ago`;
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 7) return `${diffInDays}d ago`;
     return past.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   } catch {
-    return "Recently";
+    return "Today";
   }
 };
 
-const NotificationBell: React.FC<NotificationBellProps> = ({
+export const DriverNotificationDropdown: React.FC<DriverNotificationDropdownProps> = ({
   deliveries = [],
-  count: propCount,
   onSelectDelivery,
-  onViewRadar,
+  onOpenProofModal,
+  onOpenIssueModal,
   onNavigateTab,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [readIds, setReadIds] = useState<Set<string>>(() => {
     try {
-      const saved = localStorage.getItem("customer_read_notifications");
+      const saved = localStorage.getItem("driver_read_notifications");
       return saved ? new Set(JSON.parse(saved)) : new Set();
     } catch {
       return new Set();
@@ -71,7 +74,6 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -85,204 +87,226 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Build real notifications from actual deliveries
-  const notifications: CustomerNotificationItem[] = useMemo(() => {
-    if (!Array.isArray(deliveries) || deliveries.length === 0) {
-      return [];
-    }
+  // Generate driver-specific real notifications from assigned route stops
+  const notifications: DriverNotificationItem[] = useMemo(() => {
+    if (!Array.isArray(deliveries) || deliveries.length === 0) return [];
 
-    return deliveries
-      .map((d: any): CustomerNotificationItem => {
-        const rawStatus = (d.status || d.delivery_status || "").toString().toLowerCase();
-        const orderNum = d.order_number || (d.uuid ? d.uuid.slice(0, 8).toUpperCase() : "ORD-UNKNOWN");
-        const address = d.delivery_address || d.address || "your address";
-        const driver = d.driver_name ? d.driver_name.trim() : null;
-        const time = d.actual_arrival || d.updated_at || d.created_at || new Date().toISOString();
+    const items: DriverNotificationItem[] = [];
 
-        if (rawStatus === "delivered") {
-          return {
-            id: `del-${d.uuid || d.id || orderNum}`,
-            orderNumber: orderNum,
-            title: `Delivered: #${orderNum}`,
-            message: `Package safely dropped off${driver ? ` by ${driver}` : ""}. Photo proof & signature verified.`,
-            timestamp: time,
-            type: "success",
-            statusTag: "Delivered",
-            delivery: d,
-            actionType: "details",
-            actionLabel: "View Proof & Details",
-          };
-        }
+    deliveries.forEach((d) => {
+      const orderNum = d.order_number || (d.uuid ? d.uuid.slice(0, 8).toUpperCase() : "ORD-REQ");
+      const sla = calculateSLAStatus(d.scheduled_time);
 
-        if (rawStatus === "en_route" || rawStatus === "in_transit") {
-          return {
-            id: `del-${d.uuid || d.id || orderNum}`,
-            orderNumber: orderNum,
-            title: `Out for Delivery: #${orderNum}`,
-            message: `${driver ? `Courier ${driver}` : "Driver"} is en route to ${address}.`,
-            timestamp: time,
-            type: "info",
-            statusTag: "En Route",
-            delivery: d,
-            actionType: "radar",
-            actionLabel: "Track Live on Radar",
-          };
-        }
-
-        if (rawStatus === "arrived") {
-          return {
-            id: `del-${d.uuid || d.id || orderNum}`,
-            orderNumber: orderNum,
-            title: `Driver Arrived: #${orderNum}`,
-            message: `${driver || "Driver"} has arrived outside ${address}.`,
-            timestamp: time,
-            type: "info",
-            statusTag: "Arrived",
-            delivery: d,
-            actionType: "radar",
-            actionLabel: "View Arrival on Radar",
-          };
-        }
-
-        if (rawStatus === "disputed") {
-          return {
-            id: `del-${d.uuid || d.id || orderNum}`,
-            orderNumber: orderNum,
-            title: `Dispute Logged: #${orderNum}`,
-            message: `Claim under review with support. Proof record is being evaluated.`,
-            timestamp: time,
-            type: "warning",
-            statusTag: "Dispute",
-            delivery: d,
-            actionType: "details",
-            actionLabel: "View Claim Status",
-          };
-        }
-
-        if (rawStatus === "failed" || rawStatus === "cancelled") {
-          return {
-            id: `del-${d.uuid || d.id || orderNum}`,
-            orderNumber: orderNum,
-            title: `Delivery Exception: #${orderNum}`,
-            message: `Delivery attempt could not be completed for ${address}.`,
-            timestamp: time,
-            type: "warning",
-            statusTag: "Exception",
-            delivery: d,
-            actionType: "details",
-            actionLabel: "View Order Details",
-          };
-        }
-
-        return {
-          id: `del-${d.uuid || d.id || orderNum}`,
+      // 1. In-transit Stop
+      if (d.delivery_status === "in_transit") {
+        items.push({
+          id: `transit-${d.uuid}`,
           orderNumber: orderNum,
-          title: `Order Confirmed: #${orderNum}`,
-          message: `Scheduled for route dispatch to ${address}.`,
-          timestamp: time,
-          type: "neutral",
-          statusTag: "Scheduled",
+          title: `Current Destination: #${orderNum}`,
+          message: `En route to ${d.address}. Customer: ${d.customer_name}. Tap to open navigation.`,
+          timestamp: d.scheduled_time || new Date().toISOString(),
+          type: "in_transit",
+          statusTag: "In Transit",
           delivery: d,
-          actionType: "details",
-          actionLabel: "View Order",
-        };
-      })
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, 15);
+          actionType: "route",
+          actionLabel: "Open Route Navigation",
+        });
+      }
+
+      // 2. Urgent / High Priority Stops (not delivered)
+      if (
+        (d.priority_level === "urgent" || d.priority_level === "high") &&
+        d.delivery_status !== "delivered" &&
+        d.delivery_status !== "failed"
+      ) {
+        items.push({
+          id: `priority-${d.uuid}`,
+          orderNumber: orderNum,
+          title: `Priority Stop: #${orderNum}`,
+          message: `${d.priority_level?.toUpperCase()} priority delivery for ${d.customer_name}. Deliver before SLA expires.`,
+          timestamp: d.scheduled_time || new Date().toISOString(),
+          type: "urgent",
+          statusTag: `${d.priority_level?.toUpperCase() || "HIGH"} PRIORITY`,
+          delivery: d,
+          actionType: "route",
+          actionLabel: "Prioritize Stop",
+        });
+      }
+
+      // 3. SLA Alert (at-risk or late)
+      if (
+        (sla.status === "late" || sla.status === "at-risk") &&
+        d.delivery_status !== "delivered" &&
+        d.delivery_status !== "failed"
+      ) {
+        items.push({
+          id: `sla-${d.uuid}`,
+          orderNumber: orderNum,
+          title: `SLA Alert: #${orderNum}`,
+          message: `Delivery window is ${sla.status === "late" ? "overdue" : "approaching limit"} (${Math.abs(sla.minutesRemaining)}m). Immediate drop-off recommended.`,
+          timestamp: d.scheduled_time || new Date().toISOString(),
+          type: "sla",
+          statusTag: sla.status === "late" ? "SLA Overdue" : "SLA At Risk",
+          delivery: d,
+          actionType: "route",
+          actionLabel: "Jump to Stop",
+        });
+      }
+
+      // 4. Customer Delivery Note / Gate Code
+      if (
+        d.delivery_instructions &&
+        d.delivery_status !== "delivered" &&
+        d.delivery_status !== "failed"
+      ) {
+        items.push({
+          id: `note-${d.uuid}`,
+          orderNumber: orderNum,
+          title: `Customer Note: #${orderNum}`,
+          message: `"${d.delivery_instructions}". Stop: ${d.customer_name}.`,
+          timestamp: d.scheduled_time || new Date().toISOString(),
+          type: "instruction",
+          statusTag: "Special Note",
+          delivery: d,
+          actionType: "route",
+          actionLabel: "View Instructions",
+        });
+      }
+
+      // 5. Delivered Stop
+      if (d.delivery_status === "delivered") {
+        items.push({
+          id: `delivered-${d.uuid}`,
+          orderNumber: orderNum,
+          title: `Delivered: #${orderNum}`,
+          message: `Safely dropped off for ${d.customer_name}. Proof recorded (+₹${d.earnings || 50}).`,
+          timestamp: d.scheduled_time || new Date().toISOString(),
+          type: "delivered",
+          statusTag: "Verified",
+          delivery: d,
+          actionType: "proof",
+          actionLabel: "Review Proof",
+        });
+      }
+
+      // 6. Exception / Failed
+      if (d.delivery_status === "failed" || d.delivery_status === "disputed") {
+        items.push({
+          id: `issue-${d.uuid}`,
+          orderNumber: orderNum,
+          title: `Exception: #${orderNum}`,
+          message: `Issue reported for ${d.address}. Exception recorded in shift logs.`,
+          timestamp: d.scheduled_time || new Date().toISOString(),
+          type: "exception",
+          statusTag: "Exception",
+          delivery: d,
+          actionType: "issue",
+          actionLabel: "View Details",
+        });
+      }
+    });
+
+    return items.slice(0, 15);
   }, [deliveries]);
 
-  // Unread count: items not in readIds (or fallback to propCount if provided)
   const unreadCount = useMemo(() => {
-    if (notifications.length > 0) {
-      return notifications.filter((n) => !readIds.has(n.id)).length;
-    }
-    return propCount || 0;
-  }, [notifications, readIds, propCount]);
+    return notifications.filter((n) => !readIds.has(n.id)).length;
+  }, [notifications, readIds]);
 
   const handleMarkAllRead = () => {
     const allIds = new Set(notifications.map((n) => n.id));
     setReadIds(allIds);
     try {
-      localStorage.setItem("customer_read_notifications", JSON.stringify(Array.from(allIds)));
+      localStorage.setItem("driver_read_notifications", JSON.stringify(Array.from(allIds)));
     } catch {
       // ignore
     }
   };
 
-  const handleItemClick = (item: CustomerNotificationItem) => {
-    // Mark this specific item as read
+  const handleItemClick = (item: DriverNotificationItem) => {
     const next = new Set(readIds);
     next.add(item.id);
     setReadIds(next);
     try {
-      localStorage.setItem("customer_read_notifications", JSON.stringify(Array.from(next)));
+      localStorage.setItem("driver_read_notifications", JSON.stringify(Array.from(next)));
     } catch {
       // ignore
     }
 
     setIsOpen(false);
 
-    // Deep Redirection based on actual event type
-    if (item.actionType === "radar" && onViewRadar) {
-      onViewRadar(item.delivery);
-    } else if (onSelectDelivery) {
-      onSelectDelivery(item.delivery);
-    } else if (onNavigateTab) {
-      if (item.statusTag === "Delivered") {
-        onNavigateTab("history");
-      } else {
-        onNavigateTab("active");
+    // Deep Redirection based on actual stop type
+    if (item.actionType === "proof" && onOpenProofModal) {
+      onOpenProofModal(item.delivery, "view");
+    } else if (item.actionType === "issue" && onOpenIssueModal) {
+      onOpenIssueModal(item.delivery);
+    } else {
+      if (onNavigateTab) {
+        onNavigateTab("route");
       }
+      onSelectDelivery(item.delivery);
     }
   };
 
-  const getBadgeStyling = (type: CustomerNotificationItem["type"]) => {
+  const getBadgeStyling = (type: DriverNotificationItem["type"]) => {
     switch (type) {
-      case "success":
+      case "urgent":
         return {
-          icon: <PackageCheck size={16} className="text-emerald-600" />,
-          boxBg: "bg-emerald-50 border-emerald-200/80",
-          tagBg: "bg-emerald-50 text-emerald-700 border-emerald-200",
+          icon: <Flame size={16} className="text-rose-600" />,
+          boxBg: "bg-rose-50 border-rose-200/80",
+          tagBg: "bg-rose-50 text-rose-700 border-rose-200",
         };
-      case "info":
+      case "in_transit":
         return {
           icon: <Truck size={16} className="text-blue-600" />,
           boxBg: "bg-blue-50 border-blue-200/80",
           tagBg: "bg-blue-50 text-blue-700 border-blue-200",
         };
-      case "warning":
+      case "sla":
         return {
-          icon: <AlertTriangle size={16} className="text-amber-600" />,
+          icon: <Clock size={16} className="text-amber-600" />,
           boxBg: "bg-amber-50 border-amber-200/80",
           tagBg: "bg-amber-50 text-amber-700 border-amber-200",
         };
+      case "instruction":
+        return {
+          icon: <FileText size={16} className="text-purple-600" />,
+          boxBg: "bg-purple-50 border-purple-200/80",
+          tagBg: "bg-purple-50 text-purple-700 border-purple-200",
+        };
+      case "delivered":
+        return {
+          icon: <CheckCircle2 size={16} className="text-emerald-600" />,
+          boxBg: "bg-emerald-50 border-emerald-200/80",
+          tagBg: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        };
       default:
         return {
-          icon: <Clock size={16} className="text-slate-500" />,
-          boxBg: "bg-slate-50 border-slate-200",
-          tagBg: "bg-slate-100 text-slate-700 border-slate-200",
+          icon: <AlertCircle size={16} className="text-red-600" />,
+          boxBg: "bg-red-50 border-red-200/80",
+          tagBg: "bg-red-50 text-red-700 border-red-200",
         };
     }
   };
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Bell Trigger Button */}
+      {/* Bell Trigger */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        aria-label="View notifications"
+        aria-label="Driver notifications"
         aria-expanded={isOpen}
         className="relative p-2 rounded-xl border border-slate-200/80 bg-white hover:bg-slate-50 active:scale-95 transition-all cursor-pointer group shadow-2xs"
       >
         <Bell
           className={`w-5 h-5 transition-colors ${
-            unreadCount > 0 ? "text-blue-600" : "text-slate-500 group-hover:text-slate-800"
+            unreadCount > 0 ? "text-indigo-600" : "text-slate-500 group-hover:text-slate-800"
           }`}
         />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 flex h-4.5 min-w-4.5 px-1 items-center justify-center">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-4.5 min-w-4.5 px-1 bg-blue-600 border-2 border-white text-[9px] font-extrabold items-center justify-center text-white leading-none">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-4.5 min-w-4.5 px-1 bg-indigo-600 border-2 border-white text-[9px] font-extrabold items-center justify-center text-white leading-none">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           </span>
@@ -302,16 +326,16 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/80 backdrop-blur-xs gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100/90 shadow-2xs shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100/90 shadow-2xs shrink-0">
                   <Bell size={16} />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight leading-none truncate">
-                      Shipment Updates
+                      Dispatch Alerts
                     </h3>
                     {unreadCount > 0 ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 text-blue-600 border border-blue-200/80 whitespace-nowrap shrink-0">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200/80 whitespace-nowrap shrink-0">
                         {unreadCount} New
                       </span>
                     ) : (
@@ -321,7 +345,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
                     )}
                   </div>
                   <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate max-w-[200px] xs:max-w-[240px]">
-                    Live status updates & proof records
+                    Stops, SLA deadlines, & instructions
                   </p>
                 </div>
               </div>
@@ -330,10 +354,10 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
                 {unreadCount > 0 && (
                   <button
                     onClick={handleMarkAllRead}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-white hover:bg-blue-50/80 border border-slate-200/90 hover:border-blue-200 rounded-xl shadow-2xs transition-all active:scale-95 whitespace-nowrap cursor-pointer shrink-0"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 bg-white hover:bg-indigo-50/80 border border-slate-200/90 hover:border-indigo-200 rounded-xl shadow-2xs transition-all active:scale-95 whitespace-nowrap cursor-pointer shrink-0"
                     title="Mark all as read"
                   >
-                    <Check size={12} className="text-blue-600" />
+                    <Check size={12} className="text-indigo-600" />
                     <span>Read all</span>
                   </button>
                 )}
@@ -347,7 +371,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
               </div>
             </div>
 
-            {/* Notification Items List */}
+            {/* Notifications List */}
             <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-100/80 p-2 space-y-1">
               {notifications.length > 0 ? (
                 notifications.map((item) => {
@@ -360,26 +384,23 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
                       onClick={() => handleItemClick(item)}
                       className={`group p-3 rounded-2xl hover:bg-slate-50 border transition-all cursor-pointer flex items-start gap-3 relative ${
                         isUnread
-                          ? "bg-blue-50/20 border-blue-100/60 shadow-2xs"
+                          ? "bg-indigo-50/20 border-indigo-100/60 shadow-2xs"
                           : "border-transparent"
                       }`}
                     >
-                      {/* Unread indicator dot */}
                       {isUnread && (
-                        <span className="absolute top-3.5 left-1 w-1.5 h-1.5 rounded-full bg-blue-600" />
+                        <span className="absolute top-3.5 left-1 w-1.5 h-1.5 rounded-full bg-indigo-600" />
                       )}
 
-                      {/* Status Icon */}
                       <div
                         className={`w-9 h-9 rounded-xl ${style.boxBg} border flex items-center justify-center shrink-0 shadow-2xs mt-0.5 ml-1`}
                       >
                         {style.icon}
                       </div>
 
-                      {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <h4 className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate">
+                          <h4 className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
                             {item.title}
                           </h4>
                           <span className="text-[10px] text-slate-400 flex items-center gap-1 shrink-0 font-medium">
@@ -398,7 +419,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
                           >
                             {item.statusTag}
                           </span>
-                          <span className="text-[10px] font-bold text-blue-600 group-hover:text-blue-700 flex items-center gap-1 transition-colors">
+                          <span className="text-[10px] font-bold text-indigo-600 group-hover:text-indigo-700 flex items-center gap-1 transition-colors">
                             <span>{item.actionLabel}</span>
                             <ChevronRight
                               size={12}
@@ -415,9 +436,9 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
                   <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-300 flex items-center justify-center mx-auto mb-3 border border-slate-100">
                     <PackageCheck size={22} />
                   </div>
-                  <p className="text-xs font-bold text-slate-800">All caught up!</p>
+                  <p className="text-xs font-bold text-slate-800">Route clear!</p>
                   <p className="text-[11px] text-slate-400 mt-1 max-w-[200px] mx-auto">
-                    No active updates for your shipments at the moment.
+                    No urgent dispatch alerts or issues for your current shift.
                   </p>
                 </div>
               )}
@@ -429,11 +450,11 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
                 <button
                   onClick={() => {
                     setIsOpen(false);
-                    onNavigateTab("active");
+                    onNavigateTab("route");
                   }}
-                  className="flex-1 py-2 px-3 text-center text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-white hover:bg-blue-50/50 rounded-xl border border-slate-200 transition-colors cursor-pointer"
+                  className="flex-1 py-2 px-3 text-center text-[11px] font-bold text-indigo-600 hover:text-indigo-700 bg-white hover:bg-indigo-50/50 rounded-xl border border-slate-200 transition-colors cursor-pointer"
                 >
-                  View Active Radar
+                  View Route Stops
                 </button>
                 <button
                   onClick={() => {
@@ -442,7 +463,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
                   }}
                   className="flex-1 py-2 px-3 text-center text-[11px] font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100/70 rounded-xl border border-slate-200 transition-colors cursor-pointer"
                 >
-                  View Order History
+                  Completed Deliveries
                 </button>
               </div>
             )}
@@ -453,4 +474,4 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
   );
 };
 
-export default NotificationBell;
+export default DriverNotificationDropdown;

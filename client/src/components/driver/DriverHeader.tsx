@@ -6,8 +6,9 @@ import {
   WifiOff,
   Menu,
 } from "lucide-react";
-import { GPSStatus } from "./types";
+import { Delivery, GPSStatus } from "./types";
 import { cn } from "./utils";
+import DriverNotificationDropdown from "./ui/DriverNotificationDropdown";
 
 interface DriverHeaderProps {
   driverName: string;
@@ -16,6 +17,13 @@ interface DriverHeaderProps {
   syncQueueCount?: number;
   isOffline?: boolean;
   pageTitle?: string;
+  deliveries?: Delivery[];
+  isRefreshing?: boolean;
+  onRefresh?: () => void;
+  onSelectDelivery?: (delivery: Delivery) => void;
+  onOpenProofModal?: (delivery: Delivery, mode?: "upload" | "view") => void;
+  onOpenIssueModal?: (delivery: Delivery) => void;
+  onNavigateTab?: (tab: "route" | "history" | "earnings" | "profile") => void;
   onToggleSidebar?: () => void;
   onSyncNow?: () => void;
   onLogout: () => void;
@@ -59,6 +67,13 @@ const DriverHeader: React.FC<DriverHeaderProps> = memo(
     syncQueueCount = 0,
     isOffline = false,
     pageTitle = "Today's Route",
+    deliveries = [],
+    isRefreshing = false,
+    onRefresh,
+    onSelectDelivery,
+    onOpenProofModal,
+    onOpenIssueModal,
+    onNavigateTab,
     onToggleSidebar,
     onSyncNow,
     onLogout,
@@ -111,7 +126,7 @@ const DriverHeader: React.FC<DriverHeaderProps> = memo(
 
         {/* Main Header Row - Full Width */}
         <div className="w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
-          {/* Left: Hamburger menu (mobile) & Page Title */}
+          {/* Left: Hamburger menu (mobile) & Brand / Page Title */}
           <div className="flex items-center gap-3 min-w-0">
             {onToggleSidebar && (
               <button
@@ -123,6 +138,14 @@ const DriverHeader: React.FC<DriverHeaderProps> = memo(
               </button>
             )}
 
+            <div className="w-9 h-9 rounded-xl overflow-hidden shadow-xs border border-slate-100 flex items-center justify-center shrink-0 hidden sm:flex">
+              <img
+                src="/deliveryproof_app_icon_large_original.png"
+                alt="DeliveryProof Logo"
+                className="w-full h-full object-cover"
+              />
+            </div>
+
             <div>
               <h1 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight leading-none">
                 {pageTitle}
@@ -133,13 +156,39 @@ const DriverHeader: React.FC<DriverHeaderProps> = memo(
             </div>
           </div>
 
+          {/* Right: Refresh, Notification Dropdown, GPS Pill, Online status, and Logout */}
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
+            {/* Header Refresh Action */}
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                aria-label="Refresh route and stops"
+                title="Refresh route and stops"
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200/80 bg-white transition cursor-pointer shadow-2xs disabled:opacity-50"
+              >
+                <RefreshCw
+                  size={16}
+                  className={isRefreshing ? "animate-spin text-indigo-600" : ""}
+                />
+              </button>
+            )}
 
-          {/* Right: GPS Pill, Online status, and Driver Avatar/Logout */}
-          <div className="flex items-center gap-2.5 flex-shrink-0">
+            {/* Driver Notifications Bell */}
+            {onSelectDelivery && (
+              <DriverNotificationDropdown
+                deliveries={deliveries}
+                onSelectDelivery={onSelectDelivery}
+                onOpenProofModal={onOpenProofModal}
+                onOpenIssueModal={onOpenIssueModal}
+                onNavigateTab={onNavigateTab}
+              />
+            )}
+
             {/* GPS Pill */}
             <div
               className={cn(
-                "hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors",
+                "hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors",
                 currentGps.textClass
               )}
               title={currentGps.label}

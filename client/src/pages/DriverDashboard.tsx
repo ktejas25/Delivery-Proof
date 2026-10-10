@@ -36,6 +36,7 @@ import ProofModal, { ProofData } from "../components/ProofModal";
 import DriverRouteMap from "../components/driver/DriverRouteMap";
 import DeliveryIssueModal from "../components/driver/DeliveryIssueModal";
 import CustomerContactModal from "../components/driver/CustomerContactModal";
+import AppRefreshOverlay from "../components/ui/AppRefreshOverlay";
 import {
   searchDeliveries,
   sortDeliveriesByTime,
@@ -247,6 +248,16 @@ const DriverDashboard: React.FC = () => {
   const [issueModalDelivery, setIssueModalDelivery] = useState<Delivery | null>(null);
   const [contactModalDelivery, setContactModalDelivery] = useState<Delivery | null>(null);
   const [selectedMapDeliveryUuid, setSelectedMapDeliveryUuid] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  }, [refetch]);
 
   // SLA periodic refresh interval (ticks every 30s so overdue states update live)
   const [, setTick] = useState(0);
@@ -616,7 +627,16 @@ const DriverDashboard: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans">
+    <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans relative">
+      {/* Branded Local Refresh Overlay */}
+      {isRefreshing && (
+        <AppRefreshOverlay
+          fullScreen
+          message="Refreshing..."
+          submessage="Updating route, stops & live telemetry..."
+        />
+      )}
+
       {/* 1. Left AppShell Driver Sidebar */}
       <DriverSidebar
         activeTab={activeTab}
@@ -645,6 +665,27 @@ const DriverDashboard: React.FC = () => {
           syncQueueCount={syncQueue.length}
           isOffline={offline}
           pageTitle={pageTitle}
+          deliveries={deliveries}
+          isRefreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          onSelectDelivery={(delivery) => {
+            setActiveTab("route");
+            setSelectedMapDeliveryUuid(delivery.uuid);
+            setTimeout(() => {
+              const el = document.getElementById(`delivery-${delivery.uuid}`);
+              if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "center" });
+              }
+            }, 100);
+          }}
+          onOpenProofModal={(delivery, mode) => {
+            setProofModalMode(mode || "upload");
+            setProofModalDelivery(delivery);
+          }}
+          onOpenIssueModal={(delivery) => {
+            setIssueModalDelivery(delivery);
+          }}
+          onNavigateTab={setActiveTab}
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
           onSyncNow={syncQueuedUpdates}
           onLogout={handleLogout}

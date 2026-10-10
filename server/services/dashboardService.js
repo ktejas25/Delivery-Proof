@@ -562,9 +562,27 @@ const getRecentActivity = async (businessId, options = 10) => {
           description = `New delivery scheduled for Order #${item.order_number || parsed.order_number || item.entity_id}`;
           status = 'info';
           break;
+        case 'STATUS_UPDATED': {
+          const statusText = (parsed.status || '').replace(/_/g, ' ');
+          title = statusText ? `Status: ${statusText.charAt(0).toUpperCase() + statusText.slice(1)}` : 'Status Updated';
+          description = `Order #${item.order_number || item.entity_id} updated${statusText ? ' to ' + statusText : ''}`;
+          status = parsed.status === 'delivered' ? 'success' : (parsed.status === 'failed' || parsed.status === 'cancelled') ? 'error' : 'info';
+          break;
+        }
+        case 'PROOF_SUBMITTED':
+        case 'PROOF_UPLOADED':
+          title = 'Proof of Delivery Captured';
+          description = `Photo and signature captured for Order #${item.order_number || item.entity_id}`;
+          status = 'success';
+          break;
+        case 'PROOF_REJECTED':
+          title = 'Proof Flagged';
+          description = `AI flagged proof compliance anomaly on Order #${item.order_number || item.entity_id}`;
+          status = 'error';
+          break;
         default:
           title = item.action ? item.action.replace(/_/g, ' ') : 'Activity Log';
-          description = `Action performed on ${item.entity_type} #${item.entity_id}`;
+          description = `Action performed on ${item.entity_type} #${item.order_number || item.entity_id}`;
       }
 
       return {

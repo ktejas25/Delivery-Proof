@@ -85,6 +85,7 @@ const RouteCard: React.FC<RouteCardProps> = React.memo(
 
     return (
       <div
+        id={`delivery-${delivery.uuid}`}
         className={cn(
           "bg-white rounded-2xl border transition-all p-3.5 sm:p-4 shadow-2xs hover:shadow-xs flex flex-col justify-between",
           isNext ? "border-blue-300 bg-blue-50/20" : "border-slate-200",
