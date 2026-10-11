@@ -310,34 +310,39 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
         </div>
 
         {/* Sidebar Footer: User Account & Sign Out */}
-        <div className="pt-4 border-t border-slate-100 space-y-3">
-          <button
-            onClick={() => handleSelectTab("profile")}
-            className="w-full text-left p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl flex items-center gap-3 border border-slate-100 transition-colors cursor-pointer group"
-            title="Open Customer Profile & Settings"
-          >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs group-hover:scale-105 transition-transform">
-              {initials || "C"}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-slate-900 truncate">
-                {displayName}
-              </p>
-              <div className="flex items-center gap-1 mt-0.5">
-                <span className="text-[10px] font-semibold text-emerald-600 flex items-center gap-0.5">
-                  <Shield size={10} /> Verified Customer
-                </span>
+        <div className="pt-4 border-t border-slate-100">
+          <div className="p-2.5 bg-slate-50 hover:bg-slate-100/70 rounded-2xl flex items-center justify-between gap-2 border border-slate-100 transition-colors">
+            <button
+              type="button"
+              onClick={() => handleSelectTab("profile")}
+              className="flex items-center gap-3 min-w-0 text-left flex-1 group cursor-pointer"
+              title="Open Customer Profile & Settings"
+            >
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+                {initials || "C"}
               </div>
-            </div>
-          </button>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
+                  {displayName}
+                </p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="text-[10px] font-semibold text-emerald-600 flex items-center gap-0.5">
+                    <Shield size={10} /> Verified Customer
+                  </span>
+                </div>
+              </div>
+            </button>
 
-          <button
-            onClick={onLogout}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
-          >
-            <LogOut size={16} />
-            <span>Sign Out</span>
-          </button>
+            <button
+              type="button"
+              onClick={onLogout}
+              className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer shrink-0"
+              title="Sign Out"
+              aria-label="Sign Out"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
         </div>
       </aside>
     </>

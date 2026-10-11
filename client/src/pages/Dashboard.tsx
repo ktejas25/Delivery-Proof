@@ -12,7 +12,6 @@ import {
   AlertTriangle,
   RefreshCw,
   Navigation,
-  ChevronDown,
   Calendar,
   CheckCircle2,
   Settings,
@@ -63,10 +62,8 @@ import {
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState("Dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] =
     useState(false);
-  const profileDropdownRef = useRef<HTMLDivElement>(null);
   const notificationDropdownRef = useRef<HTMLDivElement>(null);
 
   // Dashboard Data States
@@ -106,12 +103,6 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
-        profileDropdownRef.current &&
-        !profileDropdownRef.current.contains(e.target as Node)
-      ) {
-        setProfileDropdownOpen(false);
-      }
-      if (
         notificationDropdownRef.current &&
         !notificationDropdownRef.current.contains(e.target as Node)
       ) {
@@ -120,7 +111,6 @@ const Dashboard: React.FC = () => {
     };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setProfileDropdownOpen(false);
         setNotificationDropdownOpen(false);
       }
     };
@@ -770,62 +760,22 @@ const Dashboard: React.FC = () => {
               />
             </div>
 
-            {/* User Profile Dropdown (Fixed & Anchored) */}
-            <div ref={profileDropdownRef} className="relative">
-              <button
-                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                  {displayName
-                    .split(" ")
-                    .map((n: string) => n[0])
-                    .join("")}
-                </div>
-                <div className="hidden sm:block text-left">
-                  <p className="text-xs font-bold text-slate-900 leading-tight">
-                    {displayName}
-                  </p>
-                  <p className="text-[10px] font-medium text-slate-400">
-                    {roleLabel}
-                  </p>
-                </div>
-                <ChevronDown size={14} className="text-slate-400" />
-              </button>
-
-              {profileDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2 text-xs">
-                  <div className="px-3 py-2.5 border-b border-slate-100 mb-1 bg-slate-50/50 rounded-xl">
-                    <p className="font-bold text-slate-900">{displayName}</p>
-                    <p className="text-[11px] text-slate-400 truncate">
-                      {user?.email}
-                    </p>
-                    <span className="inline-block mt-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
-                      {roleLabel}
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setActiveTab("Settings");
-                      setProfileDropdownOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer transition-colors"
-                  >
-                    <Settings size={15} className="text-slate-500" />
-                    <span>User Profile Settings</span>
-                  </button>
-
-                  <div className="my-1 border-t border-slate-100" />
-
-                  <button
-                    onClick={logout}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 font-medium cursor-pointer transition-colors"
-                  >
-                    <LogOut size={15} /> Sign Out
-                  </button>
-                </div>
-              )}
+            {/* User Profile Badge */}
+            <div className="flex items-center gap-2.5 pl-2 sm:pl-3 border-l border-slate-200/80">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                {displayName
+                  .split(" ")
+                  .map((n: string) => n[0])
+                  .join("")}
+              </div>
+              <div className="hidden sm:block text-left">
+                <p className="text-xs font-bold text-slate-900 leading-tight">
+                  {displayName}
+                </p>
+                <p className="text-[10px] font-medium text-slate-400">
+                  {roleLabel}
+                </p>
+              </div>
             </div>
           </div>
         </header>
