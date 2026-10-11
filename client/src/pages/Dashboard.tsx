@@ -70,6 +70,7 @@ const Dashboard: React.FC = () => {
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [trends, setTrends] = useState<DeliveryTrendPoint[]>([]);
   const [selectedTrendRange, setSelectedTrendRange] = useState("7d");
+  const [financialRefreshTrigger, setFinancialRefreshTrigger] = useState(0);
   const [topDrivers, setTopDrivers] = useState<DriverLeaderboardItem[]>([]);
   const [fleetOverview, setFleetOverview] = useState<FleetOverview | null>(
     null,
@@ -202,6 +203,7 @@ const Dashboard: React.FC = () => {
       fetchDashboardData(true),
       fetchTrendData(selectedTrendRange),
     ]);
+    setFinancialRefreshTrigger((prev) => prev + 1);
   }, [fetchDashboardData, fetchTrendData, selectedTrendRange]);
 
   useEffect(() => {
@@ -224,6 +226,8 @@ const Dashboard: React.FC = () => {
 
     socket.on("dashboard_activity_update", () => {
       fetchDashboardData();
+      fetchTrendData(selectedTrendRange);
+      setFinancialRefreshTrigger((prev) => prev + 1);
     });
 
     socket.on("driver_location_updated", () => {
@@ -235,7 +239,7 @@ const Dashboard: React.FC = () => {
     return () => {
       socket.disconnect();
     };
-  }, [user?.business_id, fetchDashboardData]);
+  }, [user?.business_id, fetchDashboardData, fetchTrendData, selectedTrendRange]);
 
   const handleRangeChange = (newRange: string) => {
     setSelectedTrendRange(newRange);
@@ -858,10 +862,8 @@ const Dashboard: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
                   <div className="lg:col-span-7 min-w-0">
                     <RevenueCustomerChart
-                      trendData={trends}
-                      totalRevenue={overview.summary.revenue}
-                      totalCustomers={overview.summary.customers}
                       currencySymbol={overview.summary.currencySymbol || "₹"}
+                      refreshTrigger={financialRefreshTrigger}
                     />
                   </div>
                   <div className="lg:col-span-5 min-w-0">

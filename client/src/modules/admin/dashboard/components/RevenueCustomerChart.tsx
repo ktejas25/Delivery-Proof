@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -9,20 +9,32 @@ import {
   Tooltip, 
   Legend 
 } from 'recharts';
-import { TrendingUp, Calendar } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, Loader2 } from 'lucide-react';
+import api from '../../../../services/api';
 import { DeliveryTrendPoint } from '../types';
 
 interface RevenueCustomerChartProps {
-  trendData: DeliveryTrendPoint[];
-  totalRevenue: number;
-  totalCustomers: number;
+  trendData?: DeliveryTrendPoint[];
+  totalRevenue?: number;
+  totalCustomers?: number;
   currencySymbol?: string;
+  refreshTrigger?: number;
+}
+
+interface FinancialSummary {
+  totalRevenue: number;
+  periodRevenue: number;
+  allTimeRevenue?: number;
+  revenueChange: number;
+  totalCustomers: number;
+  newCustomers: number;
+  growthRate: number;
 }
 
 const CustomTooltip = ({ active, payload, label, currencySymbol }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white/95 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-xl text-xs space-y-1.5 min-w-[180px]">
+      <div className="bg-white/95 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-xl text-xs space-y-1.5 min-w-[190px]">
         <p className="font-bold text-slate-900 border-b border-slate-100 pb-1.5 mb-1.5 flex items-center gap-1.5">
           <Calendar size={13} className="text-indigo-600" />
           {label}
@@ -30,11 +42,11 @@ const CustomTooltip = ({ active, payload, label, currencySymbol }: any) => {
         {payload.map((entry: any, index: number) => (
           <div key={index} className="flex items-center justify-between gap-4">
             <span className="flex items-center gap-1.5 text-slate-600">
-              <span className="w-2.5 h-2.5 rounded-xs" style={{ backgroundColor: entry.color }} />
+              <span className="w-2.5 h-2.5 rounded-xs shrink-0" style={{ backgroundColor: entry.color }} />
               {entry.name}:
             </span>
             <span className="font-bold text-slate-900">
-              {entry.dataKey === 'revenue' ? `${currencySymbol}${entry.value}` : entry.value}
+              {entry.dataKey === 'revenue' ? `${currencySymbol}${Number(entry.value).toLocaleString()}` : entry.value}
             </span>
           </div>
         ))}
@@ -45,50 +57,90 @@ const CustomTooltip = ({ active, payload, label, currencySymbol }: any) => {
 };
 
 export const RevenueCustomerChart: React.FC<RevenueCustomerChartProps> = ({
-  trendData,
-  totalRevenue,
-  totalCustomers,
-  currencySymbol = '₹'
+  currencySymbol = '₹',
+  refreshTrigger = 0
 }) => {
-  const [timeframe, setTimeframe] = useState<'30d' | '7d' | 'today'>('30d');
-
-  // Synthesize daily revenue and customer trend points from completed delivery volumes
-  const chartData = trendData.map((d, index) => {
-    const rev = Math.round(d.completed * 28.5);
-    const custGrowth = Math.max(1, Math.min(totalCustomers, Math.round((index + 1) * (totalCustomers / Math.max(1, trendData.length)))));
-    return {
-      label: d.label,
-      revenue: rev,
-      completedOrders: d.completed,
-      activeClients: custGrowth
-    };
+  const [timeframe, setTimeframe] = useState<'today' | '7d' | '30d'>('30d');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [summary, setSummary] = useState<FinancialSummary>({
+    totalRevenue: 0,
+    periodRevenue: 0,
+    allTimeRevenue: 0,
+    revenueChange: 0,
+    totalCustomers: 0,
+    newCustomers: 0,
+    growthRate: 0
   });
+
+  const fetchFinancialTrends = useCallback(async (range: 'today' | '7d' | '30d') => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/admin/dashboard/financial-trends?range=${range}`);
+      if (res.data) {
+        if (Array.isArray(res.data.data)) {
+          setChartData(res.data.data);
+        }
+        if (res.data.summary) {
+          setSummary(res.data.summary);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load real-time financial trends:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFinancialTrends(timeframe);
+  }, [fetchFinancialTrends, timeframe, refreshTrigger]);
+
+  const displayedRevenue = summary.periodRevenue;
+  const growthRate = summary.revenueChange;
+  const isPositiveGrowth = growthRate > 0;
+  const isNegativeGrowth = growthRate < 0;
 
   return (
     <div className="group bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs hover:shadow-xl hover:border-indigo-500/30 transition-all duration-300 flex flex-col justify-between h-full relative overflow-hidden">
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-90" />
+      
       {/* Header */}
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-base font-bold text-slate-900 tracking-tight">Revenue & Customer Growth</h3>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                <TrendingUp size={11} className="mr-1" />
-                +18.0% Growth
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border transition-colors ${
+                isPositiveGrowth
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                  : isNegativeGrowth
+                  ? 'bg-rose-50 text-rose-700 border-rose-100'
+                  : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+              }`}>
+                {isPositiveGrowth ? (
+                  <TrendingUp size={11} className="mr-1 text-emerald-600" />
+                ) : isNegativeGrowth ? (
+                  <TrendingDown size={11} className="mr-1 text-rose-600" />
+                ) : (
+                  <TrendingUp size={11} className="mr-1 text-indigo-600" />
+                )}
+                {isPositiveGrowth ? `+${growthRate}% Growth` : isNegativeGrowth ? `${growthRate}% Growth` : 'Steady (0%)'}
               </span>
+              {loading && <Loader2 size={13} className="text-indigo-600 animate-spin ml-1" />}
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
               Financial realization & client account expansion trajectory
             </p>
           </div>
 
+          {/* Timeframe Selector Pills */}
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl self-start sm:self-auto">
             {(['today', '7d', '30d'] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTimeframe(t)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all ${
+                className={`px-3 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
                   timeframe === t
                     ? 'bg-white text-slate-900 shadow-2xs font-bold'
                     : 'text-slate-500 hover:text-slate-900'
@@ -100,21 +152,39 @@ export const RevenueCustomerChart: React.FC<RevenueCustomerChartProps> = ({
           </div>
         </div>
 
-        {/* Metric Highlights */}
+        {/* Dynamic Metric Highlights */}
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <span className="text-[11px] font-semibold text-slate-400 block mb-0.5">Logistics Revenue</span>
+            <span className="text-[11px] font-semibold text-slate-400 block mb-0.5">
+              {timeframe === 'today' ? "Today's Revenue" : timeframe === '7d' ? "7-Day Revenue" : "Logistics Revenue"}
+            </span>
             <div className="flex items-baseline gap-2">
-              <span className="text-xl font-extrabold text-slate-900">{currencySymbol}{totalRevenue.toLocaleString()}</span>
-              <span className="text-xs text-emerald-600 font-bold">+18.0%</span>
+              <span className="text-xl font-extrabold text-slate-900">
+                {currencySymbol}{displayedRevenue.toLocaleString()}
+              </span>
+              <span className={`text-xs font-bold ${
+                isPositiveGrowth
+                  ? 'text-emerald-600'
+                  : isNegativeGrowth
+                  ? 'text-rose-600'
+                  : 'text-slate-500'
+              }`}>
+                {isPositiveGrowth ? `+${growthRate}%` : isNegativeGrowth ? `${growthRate}%` : '0.0%'}
+              </span>
             </div>
           </div>
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <span className="text-[11px] font-semibold text-slate-400 block mb-0.5">Active Client Accounts</span>
+            <span className="text-[11px] font-semibold text-slate-400 block mb-0.5">
+              {timeframe === 'today' ? "Active Clients Today" : "Active Client Accounts"}
+            </span>
             <div className="flex items-baseline gap-2">
-              <span className="text-xl font-extrabold text-slate-900">{totalCustomers} Clients</span>
-              <span className="text-xs text-purple-600 font-bold">+5 new</span>
+              <span className="text-xl font-extrabold text-slate-900">
+                {summary.totalCustomers} Clients
+              </span>
+              <span className="text-xs text-purple-600 font-bold">
+                +{summary.newCustomers} new
+              </span>
             </div>
           </div>
         </div>
@@ -124,7 +194,7 @@ export const RevenueCustomerChart: React.FC<RevenueCustomerChartProps> = ({
       <div className="w-full min-h-[260px] h-64 relative" style={{ minWidth: 0 }}>
         {chartData.length === 0 ? (
           <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">
-            No financial trend data available.
+            {loading ? 'Fetching real-time analytics...' : 'No financial trend data available for this timeframe.'}
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={260} minWidth={0}>

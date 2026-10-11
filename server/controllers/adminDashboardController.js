@@ -1,6 +1,7 @@
 const {
   getOverview,
   getDeliveryTrends,
+  getFinancialTrends,
   getTopDrivers,
   getRecentActivity
 } = require('../services/dashboardService');
@@ -32,6 +33,18 @@ const getDeliveryTrendsHandler = async (req, res) => {
     res.json(trends);
   } catch (error) {
     console.error('getDeliveryTrendsHandler error:', error);
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+};
+
+const getFinancialTrendsHandler = async (req, res) => {
+  const { business_id } = req.user;
+  const { range = '30d' } = req.query;
+  try {
+    const trends = await getFinancialTrends(business_id, { range });
+    res.json(trends);
+  } catch (error) {
+    console.error('getFinancialTrendsHandler error:', error);
     res.status(500).json({ status: 'error', message: error.message });
   }
 };
@@ -115,6 +128,7 @@ const exportDataHandler = async (req, res) => {
 module.exports = {
   getDashboardOverviewHandler,
   getDeliveryTrendsHandler,
+  getFinancialTrendsHandler,
   getTopDriversHandler,
   getFleetHandler,
   getAiInsightsHandler,

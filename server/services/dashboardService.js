@@ -364,9 +364,30 @@ const getDeliveryTrends = async (businessId, { range = '7d', startDate, endDate 
 
     const [rows] = await pool.query(query, params);
 
-    // If rows are sparse (e.g. today or new installation), fill missing dates with 0 entries
+    // If rows are sparse (e.g. today or new installation), fill missing dates/hours with 0 entries
     let filledData = rows;
-    if (range !== 'today' && (!startDate || !endDate)) {
+    if (range === 'today') {
+      const hourMap = new Map();
+      rows.forEach(r => {
+        hourMap.set(r.label, r);
+      });
+      filledData = [];
+      for (let h = 0; h < 24; h++) {
+        const hh = String(h).padStart(2, '0') + ':00';
+        if (hourMap.has(hh)) {
+          filledData.push(hourMap.get(hh));
+        } else {
+          filledData.push({
+            label: hh,
+            date: hh,
+            total: 0,
+            completed: 0,
+            failed: 0,
+            disputed: 0
+          });
+        }
+      }
+    } else if (!startDate || !endDate) {
       const dateMap = new Map();
       rows.forEach(r => {
         const key = typeof r.date === 'string' ? r.date.slice(0, 10) : new Date(r.date).toISOString().slice(0, 10);
@@ -405,6 +426,176 @@ const getDeliveryTrends = async (businessId, { range = '7d', startDate, endDate 
     };
   } catch (error) {
     console.error('getDeliveryTrends error:', error);
+    throw error;
+  }
+};
+
+const getFinancialTrends = async (businessId, { range = '30d' }) => {
+  try {
+    let days = 30;
+    if (range === 'today') days = 1;
+    else if (range === '7d') days = 7;
+    else if (range === '30d') days = 30;
+    else if (range === '90d') days = 90;
+
+    const unitPrice = 28.50;
+
+    // 1. All customers to evaluate cumulative growth accurately
+    const [allCustomers] = await pool.query(
+      `SELECT created_at FROM customers WHERE business_id = ? ORDER BY created_at ASC`,
+      [businessId]
+    );
+    const totalCustomersCount = allCustomers.length;
+
+    // 2. All-time revenue for fallback/baseline
+    const [allTimeCompleted] = await pool.query(
+      `SELECT COUNT(*) as count 
+       FROM deliveries 
+       WHERE business_id = ? AND delivery_status = 'delivered'`,
+      [businessId]
+    );
+    const allTimeRevenue = Math.round(Number(allTimeCompleted[0]?.count || 0) * unitPrice);
+
+    let points = [];
+    let periodRevenue = 0;
+    let prevPeriodRevenue = 0;
+    let newCustomersInPeriod = 0;
+
+    if (range === 'today') {
+      const [todayDeliveries] = await pool.query(
+        `SELECT 
+          DATE_FORMAT(scheduled_time, '%H:00') as label,
+          HOUR(scheduled_time) as hr,
+          SUM(CASE WHEN delivery_status = 'delivered' THEN 1 ELSE 0 END) as completed
+        FROM deliveries 
+        WHERE business_id = ? AND DATE(scheduled_time) = CURDATE()
+        GROUP BY label, hr
+        ORDER BY hr ASC`,
+        [businessId]
+      );
+
+      const [yesterdayDeliveries] = await pool.query(
+        `SELECT 
+          SUM(CASE WHEN delivery_status = 'delivered' THEN 1 ELSE 0 END) as completed
+        FROM deliveries 
+        WHERE business_id = ? AND DATE(scheduled_time) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)`,
+        [businessId]
+      );
+
+      const [todayCustomers] = await pool.query(
+        `SELECT COUNT(*) as count
+         FROM customers 
+         WHERE business_id = ? AND DATE(created_at) = CURDATE()`,
+        [businessId]
+      );
+      newCustomersInPeriod = Number(todayCustomers[0]?.count || 0);
+
+      const hourMap = new Map();
+      todayDeliveries.forEach(r => {
+        hourMap.set(r.label, Number(r.completed || 0));
+        periodRevenue += Number(r.completed || 0) * unitPrice;
+      });
+      prevPeriodRevenue = Number(yesterdayDeliveries[0]?.completed || 0) * unitPrice;
+
+      // Build 24 hours of today
+      points = [];
+      for (let h = 0; h < 24; h++) {
+        const hh = String(h).padStart(2, '0') + ':00';
+        const completed = hourMap.get(hh) || 0;
+        const rev = Math.round(completed * unitPrice);
+        points.push({
+          label: hh,
+          revenue: rev,
+          completedOrders: completed,
+          activeClients: totalCustomersCount
+        });
+      }
+    } else {
+      const [deliveryRows] = await pool.query(
+        `SELECT 
+          DATE(scheduled_time) as dt,
+          DATE_FORMAT(scheduled_time, '%b %d') as label,
+          SUM(CASE WHEN delivery_status = 'delivered' THEN 1 ELSE 0 END) as completed
+        FROM deliveries 
+        WHERE business_id = ? AND scheduled_time >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+        GROUP BY DATE(scheduled_time), label
+        ORDER BY dt ASC`,
+        [businessId, days]
+      );
+
+      const [prevDeliveryRows] = await pool.query(
+        `SELECT 
+          SUM(CASE WHEN delivery_status = 'delivered' THEN 1 ELSE 0 END) as completed
+        FROM deliveries 
+        WHERE business_id = ? 
+          AND scheduled_time >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+          AND scheduled_time < DATE_SUB(CURDATE(), INTERVAL ? DAY)`,
+        [businessId, days * 2, days]
+      );
+
+      const [periodCustomers] = await pool.query(
+        `SELECT COUNT(*) as count
+         FROM customers 
+         WHERE business_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)`,
+        [businessId, days]
+      );
+      newCustomersInPeriod = Number(periodCustomers[0]?.count || 0);
+
+      const dateDeliveryMap = new Map();
+      deliveryRows.forEach(r => {
+        const key = typeof r.dt === 'string' ? r.dt.slice(0, 10) : new Date(r.dt).toISOString().slice(0, 10);
+        const comp = Number(r.completed || 0);
+        dateDeliveryMap.set(key, comp);
+        periodRevenue += comp * unitPrice;
+      });
+      prevPeriodRevenue = Number(prevDeliveryRows[0]?.completed || 0) * unitPrice;
+
+      points = [];
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = d.toISOString().slice(0, 10);
+        const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        
+        const endOfDay = new Date(d);
+        endOfDay.setHours(23, 59, 59, 999);
+        const custUpToDate = allCustomers.filter(c => new Date(c.created_at) <= endOfDay).length;
+
+        const completed = dateDeliveryMap.get(key) || 0;
+        const rev = Math.round(completed * unitPrice);
+
+        points.push({
+          label,
+          date: key,
+          revenue: rev,
+          completedOrders: completed,
+          activeClients: Math.max(custUpToDate, totalCustomersCount > 0 ? 1 : 0)
+        });
+      }
+    }
+
+    periodRevenue = Math.round(periodRevenue);
+    prevPeriodRevenue = Math.round(prevPeriodRevenue);
+    const revenueGrowth = calculatePercentageChange(periodRevenue, prevPeriodRevenue);
+
+    return {
+      range,
+      days,
+      currency: 'INR',
+      currencySymbol: '₹',
+      summary: {
+        totalRevenue: periodRevenue > 0 ? periodRevenue : (range === 'today' ? 0 : allTimeRevenue),
+        periodRevenue,
+        allTimeRevenue,
+        revenueChange: revenueGrowth,
+        totalCustomers: totalCustomersCount,
+        newCustomers: newCustomersInPeriod,
+        growthRate: revenueGrowth
+      },
+      data: points
+    };
+  } catch (error) {
+    console.error('getFinancialTrends error:', error);
     throw error;
   }
 };
@@ -621,6 +812,7 @@ const getRecentActivity = async (businessId, options = 10) => {
 module.exports = {
   getOverview,
   getDeliveryTrends,
+  getFinancialTrends,
   getTopDrivers,
   getRecentActivity
 };

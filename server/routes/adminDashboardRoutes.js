@@ -2,6 +2,7 @@ const express = require('express');
 const {
   getDashboardOverviewHandler,
   getDeliveryTrendsHandler,
+  getFinancialTrendsHandler,
   getTopDriversHandler,
   getFleetHandler,
   getAiInsightsHandler,
@@ -20,6 +21,7 @@ router.use(authorizeRoles('admin', 'manager', 'analyst', 'support'));
 // Operations Command Center Endpoints
 router.get('/overview', getDashboardOverviewHandler);
 router.get('/delivery-trends', getDeliveryTrendsHandler);
+router.get('/financial-trends', getFinancialTrendsHandler);
 router.get('/drivers', getTopDriversHandler);
 router.get('/fleet', getFleetHandler);
 router.get('/ai-insights', getAiInsightsHandler);
