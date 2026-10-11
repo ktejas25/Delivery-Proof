@@ -134,7 +134,7 @@ const ALLOWED_STATUS_TRANSITIONS = {
 
 const updateDeliveryStatus = async (req, res) => {
   const { uuid } = req.params;
-  const { status } = req.body;
+  const { status, reason } = req.body;
   const { business_id, user_type } = req.user;
 
   if (!status) {
@@ -273,6 +273,13 @@ const updateDeliveryStatus = async (req, res) => {
         ? "DELIVERY_CANCELLED"
         : "STATUS_UPDATED";
 
+    const auditPayload = {
+      from: currentStatus,
+      to: status,
+      order_number: orderNum,
+      ...(reason && typeof reason === "string" && reason.trim() ? { reason: reason.trim() } : {}),
+    };
+
     await pool.query(
       `INSERT INTO audit_logs (business_id, user_id, user_type, action, entity_type, entity_id, new_values)
        VALUES (?, ?, ?, ?, 'delivery', ?, ?)`,
@@ -282,7 +289,7 @@ const updateDeliveryStatus = async (req, res) => {
         req.user.user_type,
         actionName,
         delId,
-        JSON.stringify({ from: currentStatus, to: status, order_number: orderNum }),
+        JSON.stringify(auditPayload),
       ],
     );
 
