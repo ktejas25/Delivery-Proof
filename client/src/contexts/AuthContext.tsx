@@ -10,12 +10,17 @@ export interface User {
   user_type: string;
   business_name?: string;
   business_id?: number;
+  business_uuid?: string;
+  business_timezone?: string;
   name?: string;
   phone?: string;
+  language_preference?: string;
   must_change_password?: boolean;
   duty_status?: "available" | "break" | "off_duty";
   shift_status?: "not_started" | "active" | "ended";
   shift_started_at?: string | null;
+  created_at?: string;
+  last_login?: string;
 }
 
 
@@ -32,6 +37,7 @@ interface AuthContextType {
     business_name?: string;
   }) => Promise<void>;
   changePassword: (new_password: string, confirm_password: string) => Promise<void>;
+  updateUser: (updatedData: Partial<User>) => void;
   logout: () => void;
   loading: boolean;
 }
@@ -113,6 +119,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const updateUser = (updatedData: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return null;
+      const combined = { ...prev, ...updatedData };
+      if (updatedData.first_name !== undefined || updatedData.last_name !== undefined) {
+        combined.first_name = updatedData.first_name ?? prev.first_name;
+        combined.last_name = updatedData.last_name ?? prev.last_name;
+        combined.name = `${combined.first_name || ""} ${combined.last_name || ""}`.trim() || combined.email.split("@")[0];
+      }
+      localStorage.setItem("user", JSON.stringify(combined));
+      return combined;
+    });
+  };
+
   const logout = async () => {
     try {
       await api.post("/auth/logout");
@@ -138,6 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         register,
         googleLogin,
         changePassword,
+        updateUser,
         logout,
         loading,
       }}

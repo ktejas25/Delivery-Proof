@@ -7,6 +7,8 @@ const {
   getDrivers,
   createDriver,
   changePassword,
+  getProfile,
+  updateProfile,
 } = require("../controllers/authController");
 const {
   authenticateToken,
@@ -19,6 +21,8 @@ router.post("/login", login);
 router.post("/google", googleAuth);
 router.post("/logout", authenticateToken, logout);
 router.post("/change-password", authenticateToken, changePassword);
+router.get("/profile", authenticateToken, getProfile);
+router.put("/profile", authenticateToken, updateProfile);
 router.get(
   "/drivers",
   authenticateToken,

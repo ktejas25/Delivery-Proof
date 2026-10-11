@@ -35,13 +35,13 @@
 6.5 Add Average Delivery Time stat
 6.6 Add Driver Performance Summary
 
-7. Admin Settings Page
-7.1 Create Admin Settings page
-7.2 Add System configuration settings
-7.3 Add Language settings
-7.4 Add Delivery default settings
-7.5 Add User management (optional)
-7.6 Add Notification settings
+7. Admin Settings Page --- done
+7.1 Create Admin Settings page --- done
+7.2 Add System configuration settings --- done
+7.3 Add Language settings --- done
+7.4 Add Delivery default settings --- done
+7.5 Add User management (optional) --- done
+7.6 Add Notification settings --- done
 
 8. Deliveries Page Improvements
 
@@ -67,7 +67,7 @@ Customer Authentication
 10.1 Customer login
 10.2 Customer signup
 10.3 Password reset
-10.4 Profile management
+10.4 Profile management --- done
 
 Customer Dashboard
 10.5 Delivery history

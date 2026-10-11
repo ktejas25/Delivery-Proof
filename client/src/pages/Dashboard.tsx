@@ -15,6 +15,7 @@ import {
   ChevronDown,
   Calendar,
   CheckCircle2,
+  Settings,
 } from "lucide-react";
 import io from "socket.io-client";
 import api from "../services/api";
@@ -24,6 +25,7 @@ import Deliveries from "./Deliveries";
 import Drivers from "./Drivers";
 import Disputes from "./Disputes";
 import Customers from "./Customers";
+import UserProfileSettings from "../components/UserProfileSettings";
 import NewDeliveryModal from "../components/NewDeliveryModal";
 import RegisterDriverModal from "../components/RegisterDriverModal";
 import DriverPerformanceModal from "../components/DriverPerformanceModal";
@@ -348,66 +350,80 @@ const Dashboard: React.FC = () => {
       {/* 1. AppShell Sidebar */}
       <aside
         className={`
-        fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200/80 p-5 flex flex-col justify-between transition-transform duration-300 md:relative md:translate-x-0
-        ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+        fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-200/80 p-5 flex flex-col justify-between transition-transform duration-300 md:relative md:translate-x-0 overflow-hidden
+        ${mobileMenuOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"}
       `}
       >
-        <div>
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {/* Logo & Enterprise Branding */}
-          <div className="flex items-center justify-between mb-6 px-2">
+          <div className="flex items-center justify-between mb-6 px-1 shrink-0">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl overflow-hidden shadow-sm flex items-center justify-center border border-slate-100">
+              <div className="w-10 h-10 rounded-xl overflow-hidden shadow-xs flex items-center justify-center border border-slate-200/80 shrink-0 bg-slate-50">
                 <img
                   src="/deliveryproof_app_icon_large_original.png"
                   alt="DeliveryProof Logo"
                   className="w-full h-full object-cover"
                 />
               </div>
-              <div>
-                <h2 className="font-extrabold text-slate-900 text-base tracking-tight leading-none">
-                  DeliveryProof
-                </h2>
-                <span className="text-[10px] font-bold text-emerald-600 tracking-wider uppercase">
-                  Enterprise Suite
-                </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <h2 className="font-extrabold text-slate-900 text-base tracking-tight leading-none">
+                    Delivery<span className="text-blue-600">Proof</span>
+                  </h2>
+                </div>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">
+                    Enterprise Suite
+                  </span>
+                  <span className="w-1 h-1 rounded-full bg-emerald-500" />
+                  <span className="text-[10px] font-semibold text-emerald-600">
+                    Live
+                  </span>
+                </div>
               </div>
             </div>
             <button
               onClick={() => setMobileMenuOpen(false)}
-              className="md:hidden text-slate-400 hover:text-slate-600 p-1"
+              className="md:hidden text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              aria-label="Close sidebar menu"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
 
-          {/* Structured Navigation Categories */}
-          <nav className="space-y-4">
+          {/* Structured Scrollable Navigation Categories */}
+          <nav className="flex-1 overflow-y-auto pr-1 -mr-1 space-y-4 scrollbar-none">
             {/* OVERVIEW */}
             <div>
               <span className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
                 Overview
               </span>
-              <div className="mt-1 space-y-1">
+              <div className="mt-1.5 space-y-1">
                 <button
                   onClick={() => {
                     setActiveTab("Dashboard");
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl font-semibold text-xs transition-all ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
                     activeTab === "Dashboard"
-                      ? "bg-blue-50 text-blue-700 font-bold shadow-2xs"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      ? "bg-blue-600 text-white font-bold shadow-sm shadow-blue-600/25"
+                      : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
                   }`}
                 >
-                  <LayoutDashboard
-                    size={17}
-                    className={
-                      activeTab === "Dashboard"
-                        ? "text-blue-600"
-                        : "text-slate-400"
-                    }
-                  />
-                  <span>Admin Dashboard</span>
+                  <div className="flex items-center gap-3">
+                    <LayoutDashboard
+                      size={17}
+                      className={
+                        activeTab === "Dashboard"
+                          ? "text-white"
+                          : "text-slate-400"
+                      }
+                    />
+                    <span>Admin Dashboard</span>
+                  </div>
+                  {activeTab === "Dashboard" && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  )}
                 </button>
               </div>
             </div>
@@ -417,27 +433,29 @@ const Dashboard: React.FC = () => {
               <span className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
                 Management
               </span>
-              <div className="mt-1 space-y-1">
+              <div className="mt-1.5 space-y-1">
                 <button
                   onClick={() => {
                     setActiveTab("Customers");
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl font-semibold text-xs transition-all ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
                     activeTab === "Customers"
-                      ? "bg-blue-50 text-blue-700 font-bold shadow-2xs"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      ? "bg-blue-600 text-white font-bold shadow-sm shadow-blue-600/25"
+                      : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
                   }`}
                 >
-                  <UserCircle
-                    size={17}
-                    className={
-                      activeTab === "Customers"
-                        ? "text-blue-600"
-                        : "text-slate-400"
-                    }
-                  />
-                  <span>Customers</span>
+                  <div className="flex items-center gap-3">
+                    <UserCircle
+                      size={17}
+                      className={
+                        activeTab === "Customers"
+                          ? "text-white"
+                          : "text-slate-400"
+                      }
+                    />
+                    <span>Customers</span>
+                  </div>
                 </button>
 
                 <button
@@ -445,21 +463,34 @@ const Dashboard: React.FC = () => {
                     setActiveTab("Drivers");
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl font-semibold text-xs transition-all ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
                     activeTab === "Drivers"
-                      ? "bg-blue-50 text-blue-700 font-bold shadow-2xs"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      ? "bg-blue-600 text-white font-bold shadow-sm shadow-blue-600/25"
+                      : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
                   }`}
                 >
-                  <Users
-                    size={17}
-                    className={
-                      activeTab === "Drivers"
-                        ? "text-blue-600"
-                        : "text-slate-400"
-                    }
-                  />
-                  <span>Fleet & Drivers</span>
+                  <div className="flex items-center gap-3">
+                    <Users
+                      size={17}
+                      className={
+                        activeTab === "Drivers"
+                          ? "text-white"
+                          : "text-slate-400"
+                      }
+                    />
+                    <span>Fleet & Drivers</span>
+                  </div>
+                  {topDrivers.length > 0 && (
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        activeTab === "Drivers"
+                          ? "bg-white/20 text-white"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {topDrivers.length}
+                    </span>
+                  )}
                 </button>
               </div>
             </div>
@@ -469,27 +500,40 @@ const Dashboard: React.FC = () => {
               <span className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
                 Operations
               </span>
-              <div className="mt-1 space-y-1">
+              <div className="mt-1.5 space-y-1">
                 <button
                   onClick={() => {
                     setActiveTab("Deliveries");
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl font-semibold text-xs transition-all ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
                     activeTab === "Deliveries"
-                      ? "bg-blue-50 text-blue-700 font-bold shadow-2xs"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      ? "bg-blue-600 text-white font-bold shadow-sm shadow-blue-600/25"
+                      : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
                   }`}
                 >
-                  <Truck
-                    size={17}
-                    className={
-                      activeTab === "Deliveries"
-                        ? "text-blue-600"
-                        : "text-slate-400"
-                    }
-                  />
-                  <span>Deliveries & Orders</span>
+                  <div className="flex items-center gap-3">
+                    <Truck
+                      size={17}
+                      className={
+                        activeTab === "Deliveries"
+                          ? "text-white"
+                          : "text-slate-400"
+                      }
+                    />
+                    <span>Deliveries & Orders</span>
+                  </div>
+                  {overview?.summary?.totalDeliveries ? (
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        activeTab === "Deliveries"
+                          ? "bg-white/20 text-white"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {overview.summary.totalDeliveries}
+                    </span>
+                  ) : null}
                 </button>
 
                 <button
@@ -497,21 +541,28 @@ const Dashboard: React.FC = () => {
                     setActiveTab("Disputes");
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl font-semibold text-xs transition-all ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
                     activeTab === "Disputes"
-                      ? "bg-blue-50 text-blue-700 font-bold shadow-2xs"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      ? "bg-blue-600 text-white font-bold shadow-sm shadow-blue-600/25"
+                      : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
                   }`}
                 >
-                  <AlertTriangle
-                    size={17}
-                    className={
-                      activeTab === "Disputes"
-                        ? "text-blue-600"
-                        : "text-slate-400"
-                    }
-                  />
-                  <span>Disputes & Claims</span>
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle
+                      size={17}
+                      className={
+                        activeTab === "Disputes"
+                          ? "text-white"
+                          : "text-slate-400"
+                      }
+                    />
+                    <span>Disputes & Claims</span>
+                  </div>
+                  {overview?.disputes && overview.disputes.new > 0 ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white animate-pulse">
+                      {overview.disputes.new}
+                    </span>
+                  ) : null}
                 </button>
 
                 <button
@@ -519,51 +570,122 @@ const Dashboard: React.FC = () => {
                     setActiveTab("FleetOps");
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl font-semibold text-xs transition-all ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
                     activeTab === "FleetOps"
-                      ? "bg-blue-50 text-blue-700 font-bold shadow-2xs"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      ? "bg-blue-600 text-white font-bold shadow-sm shadow-blue-600/25"
+                      : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
                   }`}
                 >
-                  <Navigation
-                    size={17}
-                    className={
-                      activeTab === "FleetOps"
-                        ? "text-blue-600"
-                        : "text-slate-400"
-                    }
-                  />
-                  <span>Fleet Operations</span>
+                  <div className="flex items-center gap-3">
+                    <Navigation
+                      size={17}
+                      className={
+                        activeTab === "FleetOps"
+                          ? "text-white"
+                          : "text-slate-400"
+                      }
+                    />
+                    <span>Fleet Operations</span>
+                  </div>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                </button>
+              </div>
+            </div>
+
+            {/* SYSTEM & SETTINGS */}
+            <div>
+              <span className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                System & Settings
+              </span>
+              <div className="mt-1.5 space-y-1">
+                <button
+                  onClick={() => {
+                    setActiveTab("Settings");
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
+                    activeTab === "Settings"
+                      ? "bg-blue-600 text-white font-bold shadow-sm shadow-blue-600/25"
+                      : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Settings
+                      size={17}
+                      className={
+                        activeTab === "Settings"
+                          ? "text-white"
+                          : "text-slate-400"
+                      }
+                    />
+                    <span>Profile & Settings</span>
+                  </div>
                 </button>
               </div>
             </div>
           </nav>
         </div>
 
-        {/* User Account / Logout Footer */}
-        <div className="pt-4 border-t border-slate-100">
-          <div className="p-3 bg-slate-50 rounded-xl mb-2 flex items-center gap-3 border border-slate-100">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
-              {displayName
-                .split(" ")
-                .map((n: string) => n[0])
-                .join("")}
+        {/* Enhanced User Account & Settings Footer */}
+        <div className="pt-4 mt-auto border-t border-slate-200/80 space-y-2 shrink-0">
+          <div className="p-3 bg-gradient-to-b from-slate-50 to-slate-100/70 rounded-2xl border border-slate-200/80 shadow-2xs hover:border-slate-300 transition-all">
+            <div className="flex items-center justify-between gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("Settings");
+                  setMobileMenuOpen(false);
+                }}
+                className="flex items-center gap-2.5 min-w-0 text-left flex-1 cursor-pointer group"
+                title="View Profile & Settings"
+              >
+                <div className="relative shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-white flex items-center justify-center font-bold text-xs shadow-xs group-hover:scale-105 transition-transform">
+                    {displayName
+                      .split(" ")
+                      .map((n: string) => n[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()}
+                  </div>
+                  <span
+                    className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white"
+                    title="Active Session"
+                  />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
+                    {displayName}
+                  </p>
+                  <p className="text-[11px] text-slate-400 truncate">
+                    {user?.email}
+                  </p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={logout}
+                className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer shrink-0"
+                title="Sign Out"
+                aria-label="Sign Out"
+              >
+                <LogOut size={16} />
+              </button>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-slate-900 truncate">
-                {displayName}
-              </p>
-              <p className="text-[10px] text-slate-400 truncate">{roleLabel}</p>
+
+            {/* Role & Status Pill Bar */}
+            <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[10px]">
+              <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100 truncate max-w-[170px]">
+                {roleLabel}
+              </span>
+              <span className="text-emerald-600 font-semibold flex items-center gap-1 shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Online
+              </span>
             </div>
           </div>
-
-          <button
-            onClick={logout}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-500 hover:bg-red-50 hover:text-red-600 rounded-xl transition-all cursor-pointer"
-          >
-            <LogOut size={15} />
-            <span>Sign Out</span>
-          </button>
         </div>
       </aside>
 
@@ -585,7 +707,9 @@ const Dashboard: React.FC = () => {
                   ? "Admin Overview"
                   : activeTab === "FleetOps"
                     ? "Fleet Operations"
-                    : activeTab}
+                    : activeTab === "Settings"
+                      ? "User Profile & Settings"
+                      : activeTab}
               </span>
               <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-100">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -682,8 +806,21 @@ const Dashboard: React.FC = () => {
                   </div>
 
                   <button
+                    onClick={() => {
+                      setActiveTab("Settings");
+                      setProfileDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer transition-colors"
+                  >
+                    <Settings size={15} className="text-slate-500" />
+                    <span>User Profile Settings</span>
+                  </button>
+
+                  <div className="my-1 border-t border-slate-100" />
+
+                  <button
                     onClick={logout}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 font-medium cursor-pointer"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 font-medium cursor-pointer transition-colors"
                   >
                     <LogOut size={15} /> Sign Out
                   </button>
@@ -878,6 +1015,10 @@ const Dashboard: React.FC = () => {
             <Drivers />
           ) : activeTab === "Disputes" ? (
             <Disputes />
+          ) : activeTab === "Settings" ? (
+            <UserProfileSettings
+              onBackToDashboard={() => setActiveTab("Dashboard")}
+            />
           ) : (
             <div className="p-8 text-center text-slate-400">
               Feature view active

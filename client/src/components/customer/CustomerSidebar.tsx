@@ -9,6 +9,7 @@ import {
   X,
   LogOut,
   Shield,
+  Settings,
 } from "lucide-react";
 
 export type CustomerTabId =
@@ -17,7 +18,8 @@ export type CustomerTabId =
   | "radar"
   | "history"
   | "addresses"
-  | "preferences";
+  | "preferences"
+  | "profile";
 
 interface CustomerSidebarProps {
   activeTab: string;
@@ -280,6 +282,28 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                     <span>Support & Notes</span>
                   </div>
                 </button>
+
+                {/* Profile & Account Settings */}
+                <button
+                  onClick={() => handleSelectTab("profile")}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
+                    activeTab === "profile"
+                      ? "bg-indigo-50 text-indigo-700 font-bold shadow-2xs"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Settings
+                      size={18}
+                      className={
+                        activeTab === "profile"
+                          ? "text-indigo-600"
+                          : "text-slate-400"
+                      }
+                    />
+                    <span>Profile & Settings</span>
+                  </div>
+                </button>
               </div>
             </div>
           </nav>
@@ -287,8 +311,12 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
 
         {/* Sidebar Footer: User Account & Sign Out */}
         <div className="pt-4 border-t border-slate-100 space-y-3">
-          <div className="p-3 bg-slate-50 rounded-2xl flex items-center gap-3 border border-slate-100">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+          <button
+            onClick={() => handleSelectTab("profile")}
+            className="w-full text-left p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl flex items-center gap-3 border border-slate-100 transition-colors cursor-pointer group"
+            title="Open Customer Profile & Settings"
+          >
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs group-hover:scale-105 transition-transform">
               {initials || "C"}
             </div>
             <div className="flex-1 min-w-0">
@@ -301,7 +329,7 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                 </span>
               </div>
             </div>
-          </div>
+          </button>
 
           <button
             onClick={onLogout}

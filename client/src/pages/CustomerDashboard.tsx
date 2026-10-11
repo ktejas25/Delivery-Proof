@@ -21,6 +21,9 @@ import {
   AlertTriangle,
   Menu,
   Calendar,
+  User,
+  Lock,
+  Key,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import io from "socket.io-client";
@@ -91,6 +94,23 @@ const CustomerDashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
+  // Customer Profile State
+  const [customerProfile, setCustomerProfile] = useState<{
+    name: string;
+    phone: string;
+    address: string;
+    email: string;
+  }>({
+    name: "",
+    phone: "",
+    address: "",
+    email: "",
+  });
+  const [isUpdatingCustomerProfile, setIsUpdatingCustomerProfile] = useState(false);
+  const [custNewPassword, setCustNewPassword] = useState("");
+  const [custConfirmPassword, setCustConfirmPassword] = useState("");
+  const [isUpdatingCustPassword, setIsUpdatingCustPassword] = useState(false);
+
   const fetchData = useCallback(async (isLocal = false) => {
     if (isLocal) {
       setIsRefreshing(true);
@@ -98,12 +118,21 @@ const CustomerDashboard = () => {
       setLoading(true);
     }
     try {
-      const [delRes, addrRes] = await Promise.all([
+      const [delRes, addrRes, profRes] = await Promise.all([
         api.get("/customer/deliveries"),
         api.get("/customer/addresses"),
+        api.get("/customer/profile").catch(() => ({ data: null })),
       ]);
       setDeliveries(Array.isArray(delRes.data) ? delRes.data : []);
       setAddresses(Array.isArray(addrRes.data) ? addrRes.data : []);
+      if (profRes?.data) {
+        setCustomerProfile({
+          name: profRes.data.name || "",
+          phone: profRes.data.phone || "",
+          address: profRes.data.address || "",
+          email: profRes.data.email || user?.email || "",
+        });
+      }
       setLastUpdated(new Date());
     } catch (err) {
       console.error("Failed to load customer dashboard data", err);
@@ -113,7 +142,50 @@ const CustomerDashboard = () => {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [user]);
+
+  const handleSaveCustomerProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdatingCustomerProfile(true);
+    try {
+      await api.put("/customer/profile", {
+        name: customerProfile.name,
+        phone: customerProfile.phone,
+        address: customerProfile.address,
+      });
+      toast.success("Profile details updated successfully!");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to update profile");
+    } finally {
+      setIsUpdatingCustomerProfile(false);
+    }
+  };
+
+  const handleChangeCustomerPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!custNewPassword || custNewPassword.length < 8) {
+      toast.error("Password must be at least 8 characters long");
+      return;
+    }
+    if (custNewPassword !== custConfirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    setIsUpdatingCustPassword(true);
+    try {
+      await api.post("/auth/change-password", {
+        new_password: custNewPassword,
+        confirm_password: custConfirmPassword,
+      });
+      toast.success("Password changed successfully!");
+      setCustNewPassword("");
+      setCustConfirmPassword("");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to change password");
+    } finally {
+      setIsUpdatingCustPassword(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -331,6 +403,7 @@ const CustomerDashboard = () => {
                 {activeTab === "history" && "Order History"}
                 {activeTab === "addresses" && "Saved Locations"}
                 {activeTab === "preferences" && "Preferences & Support"}
+                {activeTab === "profile" && "User Profile & Settings"}
               </span>
               <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-100">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -364,17 +437,24 @@ const CustomerDashboard = () => {
               }}
             />
 
-            <div className="flex items-center gap-2.5 pl-3 border-l border-slate-100">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+            <button
+              onClick={() => setActiveTab("profile")}
+              className="flex items-center gap-2.5 pl-3 border-l border-slate-100 hover:opacity-80 transition-opacity cursor-pointer group text-left"
+              title="Open Profile Settings"
+            >
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-xs group-hover:scale-105 transition-transform">
                 {initials || "C"}
               </div>
               <div className="hidden sm:block text-left">
                 <p className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[120px]">
                   {displayName}
                 </p>
-                <p className="text-[10px] text-slate-400 font-medium">Customer</p>
+                <p className="text-[10px] text-indigo-600 font-semibold flex items-center gap-1">
+                  <span>Customer</span>
+                  <span>• Settings</span>
+                </p>
               </div>
-            </div>
+            </button>
           </div>
         </header>
 
@@ -1003,6 +1083,169 @@ const CustomerDashboard = () => {
                         <span>View Past Orders to File a Dispute</span>
                         <ArrowRight size={13} />
                       </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ============================================================== */}
+              {/* TAB 7: USER PROFILE & SETTINGS */}
+              {/* ============================================================== */}
+              {activeTab === "profile" && (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  <div className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
+                    <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                        <User size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-900 tracking-tight">
+                          Customer Profile Information
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          Update your contact information and primary delivery details.
+                        </p>
+                      </div>
+                    </div>
+
+                    <form onSubmit={handleSaveCustomerProfile} className="space-y-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
+                          Full Name
+                        </label>
+                        <input
+                          type="text"
+                          value={customerProfile.name}
+                          onChange={(e) =>
+                            setCustomerProfile({ ...customerProfile, name: e.target.value })
+                          }
+                          placeholder="Your full name"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
+                            Email Address
+                          </label>
+                          <input
+                            type="email"
+                            value={customerProfile.email || user?.email || ""}
+                            disabled
+                            className="w-full px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-medium text-slate-500 cursor-not-allowed"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
+                            Contact Phone
+                          </label>
+                          <input
+                            type="tel"
+                            value={customerProfile.phone}
+                            onChange={(e) =>
+                              setCustomerProfile({ ...customerProfile, phone: e.target.value })
+                            }
+                            placeholder="+1 (555) 000-0000"
+                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
+                          Primary Delivery Address
+                        </label>
+                        <input
+                          type="text"
+                          value={customerProfile.address}
+                          onChange={(e) =>
+                            setCustomerProfile({ ...customerProfile, address: e.target.value })
+                          }
+                          placeholder="e.g. 742 Evergreen Terrace, Springfield"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div className="pt-2">
+                        <button
+                          type="submit"
+                          disabled={isUpdatingCustomerProfile}
+                          className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                        >
+                          <Check size={14} />
+                          <span>Save Profile Information</span>
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  {/* Right: Security & Password */}
+                  <div className="lg:col-span-5 space-y-6">
+                    <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-5">
+                      <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold">
+                          <Lock size={18} />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900">
+                            Security Credentials
+                          </h4>
+                          <p className="text-[11px] text-slate-500">
+                            Update your login password
+                          </p>
+                        </div>
+                      </div>
+
+                      <form onSubmit={handleChangeCustomerPassword} className="space-y-4">
+                        <div>
+                          <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
+                            New Password
+                          </label>
+                          <input
+                            type="password"
+                            value={custNewPassword}
+                            onChange={(e) => setCustNewPassword(e.target.value)}
+                            placeholder="At least 8 characters"
+                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
+                            Confirm New Password
+                          </label>
+                          <input
+                            type="password"
+                            value={custConfirmPassword}
+                            onChange={(e) => setCustConfirmPassword(e.target.value)}
+                            placeholder="Re-enter password"
+                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={isUpdatingCustPassword}
+                          className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                        >
+                          <Key size={14} />
+                          <span>Update Password</span>
+                        </button>
+                      </form>
+                    </div>
+
+                    <div className="bg-slate-900 rounded-3xl p-6 text-white shadow-xs space-y-3">
+                      <div className="flex items-center gap-2 text-indigo-400">
+                        <ShieldCheck size={18} />
+                        <h4 className="font-bold text-xs uppercase tracking-wider text-white">
+                          Verified Profile Status
+                        </h4>
+                      </div>
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        Your customer account is securely linked to real-time parcel notifications, GPS tracking, and delivery dispute resolution.
+                      </p>
                     </div>
                   </div>
                 </div>

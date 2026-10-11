@@ -444,6 +444,110 @@ const changePassword = async (req, res) => {
   }
 };
 
+const getProfile = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const [rows] = await pool.query(
+      `SELECT u.id, u.uuid, u.email, u.phone, u.first_name, u.last_name, u.user_type, 
+              u.must_change_password, u.language_preference, u.last_login, u.created_at,
+              b.id as business_id, b.uuid as business_uuid, b.name as business_name, 
+              b.timezone as business_timezone, b.default_language_code
+       FROM users u
+       LEFT JOIN businesses b ON u.business_id = b.id
+       WHERE u.id = ?`,
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const user = rows[0];
+    res.json({
+      uuid: user.uuid,
+      email: user.email,
+      phone: user.phone || "",
+      first_name: user.first_name || "",
+      last_name: user.last_name || "",
+      name: `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email.split("@")[0],
+      user_type: user.user_type,
+      language_preference: user.language_preference || "en",
+      business_id: user.business_id,
+      business_uuid: user.business_uuid,
+      business_name: user.business_name || "Enterprise Fleet",
+      business_timezone: user.business_timezone || "UTC",
+      created_at: user.created_at,
+      last_login: user.last_login,
+      must_change_password: !!user.must_change_password,
+    });
+  } catch (error) {
+    console.error("Get profile error:", error);
+    res.status(500).json({ message: "Failed to fetch profile", error: error.message });
+  }
+};
+
+const updateProfile = async (req, res) => {
+  const userId = req.user.id;
+  const { first_name, last_name, phone, language_preference, business_name } = req.body;
+
+  try {
+    await pool.query(
+      `UPDATE users 
+       SET first_name = COALESCE(?, first_name),
+           last_name = COALESCE(?, last_name),
+           phone = COALESCE(?, phone),
+           language_preference = COALESCE(?, language_preference)
+       WHERE id = ?`,
+      [first_name, last_name, phone, language_preference, userId]
+    );
+
+    if (business_name && (req.user.user_type === "admin" || req.user.user_type === "manager") && req.user.business_id) {
+      await pool.query(
+        "UPDATE businesses SET name = ? WHERE id = ?",
+        [business_name, req.user.business_id]
+      );
+    }
+
+    const [rows] = await pool.query(
+      `SELECT u.id, u.uuid, u.email, u.phone, u.first_name, u.last_name, u.user_type, 
+              u.must_change_password, u.language_preference, u.last_login, u.created_at,
+              b.id as business_id, b.uuid as business_uuid, b.name as business_name,
+              b.timezone as business_timezone
+       FROM users u
+       LEFT JOIN businesses b ON u.business_id = b.id
+       WHERE u.id = ?`,
+      [userId]
+    );
+
+    const user = rows[0];
+    const userPayload = {
+      uuid: user.uuid,
+      email: user.email,
+      phone: user.phone || "",
+      first_name: user.first_name || "",
+      last_name: user.last_name || "",
+      name: `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email.split("@")[0],
+      user_type: user.user_type,
+      language_preference: user.language_preference || "en",
+      business_id: user.business_id,
+      business_uuid: user.business_uuid,
+      business_name: user.business_name || "Enterprise Fleet",
+      business_timezone: user.business_timezone || "UTC",
+      created_at: user.created_at,
+      last_login: user.last_login,
+      must_change_password: !!user.must_change_password,
+    };
+
+    res.json({
+      message: "Profile updated successfully",
+      user: userPayload,
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({ message: "Failed to update profile", error: error.message });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -452,4 +556,6 @@ module.exports = {
   getDrivers,
   createDriver,
   changePassword,
+  getProfile,
+  updateProfile,
 };
