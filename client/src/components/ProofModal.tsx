@@ -253,13 +253,12 @@ const ProofModal: React.FC<ProofModalProps> = ({
   };
 
   return (
-    <>
+    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50 transition-opacity" onClick={onClose} />
 
-      {/* Modal */}
-      <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto animate-slide-in-up">
+      {/* Modal Dialog */}
+      <div className="relative z-10 bg-white rounded-2xl shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto animate-slide-in-up">
           {/* Header */}
           <div className="sticky top-0 bg-slate-50 border-b border-slate-200 px-6 py-4 flex justify-between items-center">
             <div>
@@ -584,7 +583,6 @@ const ProofModal: React.FC<ProofModalProps> = ({
           </div>
         </div>
       </div>
-    </>
   );
 };
 

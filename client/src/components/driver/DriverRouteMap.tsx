@@ -315,7 +315,7 @@ const DriverRouteMap: React.FC<DriverRouteMapProps> = ({
   };
 
   return (
-    <div className={`relative w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100 ${heightClass}`}>
+    <div className={`relative isolate z-0 w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100 ${heightClass}`}>
       <MapContainer
         bounds={routeBounds || undefined}
         center={
@@ -461,7 +461,7 @@ const DriverRouteMap: React.FC<DriverRouteMapProps> = ({
       </MapContainer>
 
       {/* Floating Map Controls (Top Right) */}
-      <div className="absolute top-3 right-3 z-[400] flex flex-col gap-1.5 bg-white/95 backdrop-blur-xs p-1.5 rounded-2xl shadow-md border border-slate-200/80">
+      <div className="absolute top-3 right-3 z-10 flex flex-col gap-1.5 bg-white/95 backdrop-blur-xs p-1.5 rounded-2xl shadow-md border border-slate-200/80">
         <button
           onClick={handleCenterActiveStop}
           title="Focus on customer address"
@@ -489,7 +489,7 @@ const DriverRouteMap: React.FC<DriverRouteMapProps> = ({
 
       {/* Floating Bottom Stop Card (Mobile & Desktop interactive preview) */}
       {activePreviewDelivery && (
-        <div className="absolute bottom-3 inset-x-3 sm:left-4 sm:right-auto sm:max-w-sm z-[400] bg-white/95 backdrop-blur-md rounded-2xl p-3.5 shadow-xl border border-slate-200 animate-fade-in">
+        <div className="absolute bottom-3 inset-x-3 sm:left-4 sm:right-auto sm:max-w-sm z-10 bg-white/95 backdrop-blur-md rounded-2xl p-3.5 shadow-xl border border-slate-200 animate-fade-in">
           <div className="flex items-start justify-between gap-2 mb-1.5">
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-7 h-7 rounded-lg bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">

@@ -268,9 +268,9 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
   };
 
   return (
-    <div className="relative h-full w-full select-none overflow-hidden rounded-2xl bg-slate-100">
+    <div className="relative isolate z-0 h-full w-full select-none overflow-hidden rounded-2xl bg-slate-100">
       {/* Top Left: Live Status Radar Badge */}
-      <div className="absolute top-4 left-4 z-[1000] flex items-center gap-2 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-full shadow-md border border-slate-200/80">
+      <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-full shadow-md border border-slate-200/80">
         <span className="relative flex h-2.5 w-2.5">
           <span
             className={`animate-ping absolute inline-flex h-full w-full rounded-full ${
@@ -289,7 +289,7 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
       </div>
 
       {/* Top Right: Re-center & Map View Controls */}
-      <div className="absolute top-4 right-4 z-[1000] flex items-center gap-2">
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
         <button
           onClick={handleRecenter}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-white/95 hover:bg-white text-slate-700 hover:text-indigo-600 rounded-full shadow-md border border-slate-200/80 text-[11px] font-bold transition-all cursor-pointer"
@@ -386,7 +386,7 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
       </MapContainer>
 
       {/* Bottom Floating Telemetry Info Bar */}
-      <div className="absolute bottom-4 left-4 right-4 z-[1000] flex justify-center pointer-events-none">
+      <div className="absolute bottom-4 left-4 right-4 z-10 flex justify-center pointer-events-none">
         <div className="bg-white/95 backdrop-blur-md px-5 py-2.5 rounded-2xl shadow-lg border border-slate-200/80 flex items-center gap-4 pointer-events-auto">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">

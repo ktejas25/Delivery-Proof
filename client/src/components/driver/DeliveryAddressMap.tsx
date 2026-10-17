@@ -130,7 +130,7 @@ const DeliveryAddressMap: React.FC<DeliveryAddressMapProps> = ({
   const activeCenter = coords || DEFAULT_REGIONAL_CENTER;
 
   return (
-    <div className={`relative w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100 ${heightClass}`}>
+    <div className={`relative isolate z-0 w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100 ${heightClass}`}>
       {/* Map Display */}
       <MapContainer
         center={activeCenter}
@@ -173,14 +173,14 @@ const DeliveryAddressMap: React.FC<DeliveryAddressMapProps> = ({
 
       {/* Loading Overlay */}
       {isResolving && (
-        <div className="absolute inset-0 z-[400] bg-white/70 backdrop-blur-xs flex items-center justify-center gap-2">
+        <div className="absolute inset-0 z-20 bg-white/70 backdrop-blur-xs flex items-center justify-center gap-2">
           <RefreshCw size={16} className="text-blue-600 animate-spin" />
           <span className="text-xs font-bold text-slate-700">Locating customer address...</span>
         </div>
       )}
 
       {/* Floating Action Buttons */}
-      <div className="absolute top-2.5 right-2.5 z-[400] flex items-center gap-1.5">
+      <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5">
         <button
           onClick={handleRecenter}
           title="Recenter on customer location"
@@ -201,7 +201,7 @@ const DeliveryAddressMap: React.FC<DeliveryAddressMapProps> = ({
       </div>
 
       {/* Bottom Address Banner */}
-      <div className="absolute bottom-2 left-2 right-2 z-[400] bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/80 shadow-xs flex items-center justify-between gap-2 pointer-events-none">
+      <div className="absolute bottom-2 left-2 right-2 z-10 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/80 shadow-xs flex items-center justify-between gap-2 pointer-events-none">
         <div className="flex items-center gap-1.5 min-w-0">
           <MapPin size={12} className="text-red-500 shrink-0" />
           <span className="text-[11px] font-semibold text-slate-700 truncate">
